@@ -1,8 +1,12 @@
 <div align="center">
 
+<img src="assets/icon.png" alt="Glaze Music icon" width="120" height="120">
+
 # Glaze Music
 
-**Glaze Music — a desktop music player for your music. Your files, your playlists, your library, in one place.**
+**Your music, one player.**
+
+A desktop music player for your music — your files, your playlists, your library, in one place.
 
 Built with Electron and React. Windows installer, no account required for local playback.
 
@@ -17,24 +21,15 @@ Built with Electron and React. Windows installer, no account required for local 
 
 ![Glaze Music — built from what you actually listen to](docs/screenshots/recommendations.jpg)
 
-<img src="docs/screenshots/lyrics.jpg" alt="Full-screen player with the active lyric line highlighted" width="100%">
-
-<img src="docs/screenshots/recommendations.jpg" alt="Album and playlist grid built from recent listening" width="100%">
-
 ---
 
 ## What is Glaze Music?
 
-Most players make you choose. Local files or streaming. Your library or the cloud. Glaze Music keeps
-both in the same place: point it at a folder of music and it indexes everything into SQLite, then sign
-in to YouTube Music and your library comes with you — your liked songs, your playlists, your mixes and
-artist pages, right next to your own files.
+Most players make you choose. Local files or streaming. Your library or the cloud. Glaze Music keeps both in the same place: point it at a folder of music and it indexes everything into SQLite, then sign in to YouTube Music and your library comes with you — your liked songs, your playlists, your mixes and artist pages, right next to your own files.
 
-It is a real desktop app, not a wrapper around a website. Playback, the library index, downloads and
-lyrics all run locally. Your listening history stays on your machine.
+It is a real desktop app, not a wrapper around a website. Playback, the library index, downloads and lyrics all run locally. Your listening history stays on your machine.
 
-> **Not affiliated with YouTube or Google.** Glaze Music is an independent client. See the
-> [disclaimer](#disclaimer).
+> **Not affiliated with YouTube or Google.** Glaze Music is an independent client. See the [disclaimer](#disclaimer).
 
 ---
 
@@ -42,88 +37,69 @@ lyrics all run locally. Your listening history stays on your machine.
 
 ### Your files and YouTube Music, side by side
 
-Point it at one or more folders and it scans them, reads ID3 tags and builds a searchable index.
-Albums, artists and playlists are derived from the files themselves — no metadata service, no upload.
+**Sign in to YouTube Music and your library comes with you — your liked songs and your playlists, next to your own files.**
 
-Sign in to YouTube Music and your library comes with you: your **liked songs** and your
-**playlists**, plus **Mixed for you**, **New releases** and **Artists you follow**. Both live in the
-same sidebar, and search covers both.
+Point it at one or more folders and it scans them, reads ID3 tags and builds a searchable index. Albums, artists and playlists are derived from the files themselves — no metadata service, no upload.
 
 <img src="docs/screenshots/youtube-music.jpg" alt="YouTube Music shelves inside Glaze Music" width="100%">
 
 ### Lyrics that follow the vocal
 
-The full-screen player highlights lyrics **word by word**, paced by syllable count rather than
-character length — so a long word like "extraordinary" gets the time it needs, and a short one does not
-sit lit for a second.
+**The full-screen player highlights lyrics word by word, as the song is sung.**
 
-It is built for the awkward cases: instrumental breaks no longer drag the highlight along with them,
-right-to-left lyrics render correctly, and any line can be translated in place.
+Paced by syllable count rather than character length — so a long word like "extraordinary" gets the time it needs, and a short one does not sit lit for a second. Instrumental breaks no longer drag the highlight along, right-to-left lyrics render correctly, and any line can be translated in place.
+
+<img src="docs/screenshots/lyrics.jpg" alt="Full-screen player with the active lyric line highlighted" width="100%">
 
 <img src="docs/screenshots/lyrics-demo.gif" alt="Lyrics highlighting word by word as the song plays" width="560">
 
 ### Pin any playlist to the sidebar
 
-Hover a playlist anywhere — YouTube Music, Explore, an artist page — and pin it. It appears in a
-**Pinned** shelf and reopens in the view it came from, not whichever tab happens to be active.
+**Hover a playlist anywhere and pin it — it stays in your sidebar, in the view it came from.**
+
+Works on YouTube Music, Explore, and artist pages. It reopens in the view it came from, not whichever tab happens to be active.
+
+<img src="docs/screenshots/home.jpg" alt="Glaze Music home screen with now playing, lyrics and album grids" width="100%">
 
 ### A real 10-band equalizer
 
-Ten bands from 32 Hz to 16 kHz, seven presets, and an honest label: change a band by hand and the
-control reads **Custom** instead of pretending you are still on a preset.
+**Ten bands, seven presets — and it tells you the truth when you change one.**
+
+Ten bands from 32 Hz to 16 kHz. Change a band by hand and the control reads **Custom** instead of pretending you're still on a preset. Presets survive a restart.
 
 <img src="docs/screenshots/equalizer.jpg" alt="10-band equalizer with Bass Booster selected" width="100%">
 
 ### Explore, built from what you actually play
 
-Artists you listen to, filter chips for mood and genre, trending charts, and recommendations seeded from
-your recent history. No sign-in needed for this side.
+**Artists you listen to, filters for mood and genre, trending charts, and recommendations from your recent history.**
+
+No sign-in needed for this side.
 
 <img src="docs/screenshots/explore.jpg" alt="Explore view with artists and recommendations" width="100%">
 
 ### Artist pages worth opening
 
-Discography, top tracks, related artists and every appearance the artist makes in your library — on one
-page, without leaving playback.
+**Discography, top tracks, related artists, and every appearance the artist makes in your library — on one page.**
+
+Without leaving playback.
 
 <img src="docs/screenshots/artist.jpg" alt="Artist page" width="100%">
 
-### A mini player for when the full window is too much
-
-<img src="docs/screenshots/mini-player.jpg" alt="Glaze Music mini player window" width="270" align="right">
-
-Shrink the whole app down to a narrow strip and keep it beside whatever else you are doing. It is the
-same player, not a cut-down version:
-
-- **Full transport** — shuffle, skip, play/pause, plus elapsed and remaining time
-- **LYRICS** opens the full-screen lyrics and keeps your place
-- **Volume and favourite** without going back to the main window
-- **Follows you across virtual desktops** rather than staying on one
-- **Built for the width** — the layout is a compact design, not the full app squeezed
-
-Leave the mode and the main window comes back at the size you left it.
-
-<br clear="right">
-
----
-
 ### Your friends can see what you're listening to
 
-Glaze Music shows up on Discord — so when you're listening, your friends can see it too, right in
-Discord. It talks to Discord over local IPC — no bot, no account linking, nothing sent to a server.
-It appears on your profile the moment a track starts:
+**Glaze Music shows up on Discord — so when you're listening, your friends can see it too.**
+
+The track, the artist, the real cover art and a live progress bar, right in Discord. No bot, no account linking, nothing sent to a server. It connects automatically when Discord is running and does nothing when it is not.
 
 <img src="docs/screenshots/discord.png" alt="Discord showing Listening to Glaze Music — Blinding Lights by The Weeknd" width="386">
 
-- **Track and artist** as the presence title and subtitle
-- **A live progress bar** — elapsed and remaining, counting in real time
-- **Play / pause state**, so people can see whether you are actually listening
-- **Album** as the hover text on the icon
+### A mini player for when the full window is too much
 
-It connects automatically when Discord is running and does nothing when it is not — no setup, and no
-error dialog if you do not use Discord at all.
+**Shrink the whole app down to a narrow strip and keep it beside whatever else you're doing.**
 
----
+It is the same player, not a cut-down version: full transport — shuffle, skip, play/pause, plus elapsed and remaining time. **LYRICS** opens the full-screen lyrics and keeps your place. Volume and favourite without going back to the main window. It follows you across virtual desktops.
+
+<img src="docs/screenshots/mini-player.jpg" alt="Glaze Music mini player window" width="270">
 
 ### The rest of it
 
@@ -139,7 +115,7 @@ error dialog if you do not use Discord at all.
 
 1. Download **[Glaze Music from Releases](https://github.com/shami60/glaze-music/releases/latest)**
 2. Run the installer — per-user install, no admin rights needed
-3. Point it at a folder of music, or sign in to YouTube Music
+3. Point it at a folder of music, or sign in to YouTube Music to bring your liked songs and playlists with you
 
 > **Windows will warn you.** The installer is not code-signed yet, so SmartScreen shows
 > *"Windows protected your PC — Unknown publisher"*. Choose **More info → Run anyway**. Signing is the
@@ -232,9 +208,3 @@ audio. Downloading content may be subject to the terms of the service it comes f
 responsible for how you use it.
 
 ---
-
-## License
-
-No license has been chosen yet, which means **all rights are reserved** by default. You may download and
-use the app, but the source is not licensed for reuse or redistribution. A license will be added before
-the project accepts outside contributions.
