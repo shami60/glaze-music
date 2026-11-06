@@ -4696,13 +4696,26 @@ app.whenReady().then(async () => {
 })
 
 // ─── Discord Rich Presence ────────────────────────────────────────────────────
+//
+// CLIENT_ID must belong to a real Discord application:
+//   discord.com/developers/applications → New Application → copy "Application ID"
+// That application also needs three Rich Presence assets, keyed exactly:
+//   glaze_icon, play_icon, pause_icon
+//
+// If the ID is not a live application, Discord answers the handshake with
+//   {"code":4000,"message":"Invalid Client ID"}
+// and closes the socket. `discord-rpc` surfaces that only as "connection closed",
+// which reads exactly like "Discord is not running" — it is not. To tell the two
+// apart, check for the pipe: \\.\pipe\discord-ipc-0.
+const DISCORD_CLIENT_ID = process.env.GLAZE_DISCORD_CLIENT_ID || '1376212186966655028'
+
 let discordRPC = null
 let rpcConnected = false
 
 function initDiscordRPC() {
   try {
     const DiscordRPC = require('discord-rpc')
-    const CLIENT_ID = '1376212186966655028' // Glaze Music Discord App ID
+    const CLIENT_ID = DISCORD_CLIENT_ID
     DiscordRPC.register(CLIENT_ID)
     discordRPC = new DiscordRPC.Client({ transport: 'ipc' })
 
@@ -4727,7 +4740,9 @@ function initDiscordRPC() {
     })
 
     discordRPC.login({ clientId: CLIENT_ID }).catch(err => {
-      log.debug('Discord RPC login failed (Discord not running?):', err.message)
+      // Do not assume Discord is closed: a rejected application ID (code 4000)
+      // arrives here as "connection closed" too.
+      log.debug('Discord RPC login failed:', err.message, '| client id:', CLIENT_ID)
       rpcConnected = false
       // Same reasoning: a client that never logged in has a null socket, so it
       // must not survive to be destroyed during shutdown.
