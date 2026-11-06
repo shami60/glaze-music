@@ -76,11 +76,6 @@
     animation: float 7s ease-in-out infinite; }
   @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
   h1 { margin: 0; font-size: clamp(44px, 7vw, 76px); line-height: 1.02; letter-spacing: -.04em; font-weight: 800; text-wrap: balance; }
-  h1 em {
-    font-style: normal;
-    background: linear-gradient(100deg, var(--cyan), var(--violet) 48%, var(--magenta));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
   h1 .cy { color: var(--cyan); }
   .lede { margin: 22px auto 0; max-width: 640px; font-size: clamp(16px, 2vw, 19px); color: var(--muted); }
   .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
@@ -204,8 +199,8 @@
 <main id="top">
   <div class="hero wrap">
     <img class="mark" src="icon.png" alt="Glaze Music icon — a music note in iridescent glass" width="104" height="104">
-    <h1>Glaze Music.<br>Your files and <em>YouTube Music</em>.<br>One player.</h1>
-    <p class="lede">Point it at a folder and it indexes everything — tags, artwork, albums, artists. Sign in and your YouTube Music playlists and mixes land in the same sidebar, searchable together.</p>
+    <h1>Glaze Music.<br>Your music, one player.</h1>
+    <p class="lede">Point it at a folder and it indexes everything — tags, artwork, albums, artists. Add your YouTube Music library and your playlists, mixes and liked songs sit in the same sidebar, searchable together.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/shami60/glaze-music/releases/latest">Download for Windows</a>
       <a class="btn ghost" href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">View source</a>
