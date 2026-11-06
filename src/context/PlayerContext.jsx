@@ -1072,6 +1072,12 @@ export function PlayerProvider({ children }) {
   }, [])
 
   // ── Discord Rich Presence & Thumbnail Toolbar ────────────────────────────
+  // Declared here, above the effect: a dependency array is evaluated during render,
+  // so a `const` further down the component would be a ReferenceError.
+  // Bumped on every seek — `currentTime` ticks ~4x/sec and cannot be a dependency,
+  // so a seek needs its own discrete signal or Discord keeps the old position.
+  const [presenceEpoch, setPresenceEpoch] = useState(0)
+
   useEffect(() => {
     if (window.electronAPI?.updateThumbnailToolbar) {
       window.electronAPI.updateThumbnailToolbar(isPlaying)
@@ -1091,7 +1097,7 @@ export function PlayerProvider({ children }) {
     // (metadata is still loading), so the presence went out without timestamps and
     // Discord showed 0:00 for the whole song — nothing ever re-pushed once the
     // duration arrived. `currentTime` deliberately stays out: it ticks ~4x/sec.
-  }, [currentTrack?.src, isPlaying, duration])
+  }, [currentTrack?.src, isPlaying, duration, presenceEpoch])
 
   // ── OS Media Controls (System Media Transport Controls / SMTC via MediaSession) ──
   useEffect(() => {
@@ -1681,6 +1687,7 @@ export function PlayerProvider({ children }) {
     audio.currentTime = targetTime
     setCurrentTime(targetTime)
     setProgress(clampedPercent)
+    setPresenceEpoch((e) => e + 1)
   }, [])
 
   const cycleRepeat = useCallback(() => {
