@@ -1,15 +1,13 @@
-# What's new in 1.0.6
+# What's new in 1.0.7
 
-- Glaze Music now opens in **Daylight** on a fresh install, with Sandstone and Liquid Glass
-  a click away in Settings.
-- The equalizer remembers what you set. It used to read "Flat" after a restart even though
-  the bass boost was still on.
-- First-run setup says what the app actually does, instead of promising lossless audio.
+- **Discord now shows what you are playing** — track, artist, cover art and a live progress
+  bar, with a link to Glaze Music under the artwork.
+- Pausing shows exactly where you stopped, and seeking updates Discord straight away.
 
 ## Fixes
 
-- The EQ preset control showed Flat on every launch, whatever the bands were doing.
-- BASS / MID / TREBLE and the frequency labels were invisible on light backgrounds.
+- The Discord presence never connected at all in 1.0.6.
+- The cover art was missing and the timer sat at 0:00.
 
 ---
 
