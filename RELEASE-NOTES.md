@@ -1,17 +1,15 @@
-# What's new in 1.0.5
+# What's new in 1.0.6
 
-- **Pin any playlist to the sidebar** — from YouTube Music, Explore or an artist page.
-  Hover a playlist card and hit the pin; it reopens in the view it came from.
-- Lyrics are rebuilt: word-by-word highlighting paced by syllables, so each word lands
-  with the vocal instead of drifting ahead during instrumental breaks.
-- The lyrics screen now sits on a drifting colour backdrop taken from the cover art,
-  with the transport appearing only when you hover.
+- Glaze Music now opens in **Daylight** on a fresh install, with Sandstone and Liquid Glass
+  a click away in Settings.
+- The equalizer remembers what you set. It used to read "Flat" after a restart even though
+  the bass boost was still on.
+- First-run setup says what the app actually does, instead of promising lossless audio.
 
 ## Fixes
 
-- Lyrics kept advancing through instrumental sections, then sat ahead of the singer.
-- The active lyric line flickered blank for a moment on every line change.
-- Seek bar and controls were off-centre under the artwork at some window sizes.
+- The EQ preset control showed Flat on every launch, whatever the bands were doing.
+- BASS / MID / TREBLE and the frequency labels were invisible on light backgrounds.
 
 ---
 
