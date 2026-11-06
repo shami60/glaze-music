@@ -80,3 +80,7 @@ RIFF-*.md
 
 # Assistant / session state (contains absolute paths from this machine)
 .workbuddy-ai/
+
+# Raw capture folder for README art. The optimised, committed copies live in
+# docs/screenshots/ — the originals are 1.4 MB each.
+github graphics/

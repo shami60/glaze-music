@@ -1,237 +1,197 @@
+<div align="center">
+
 # Glaze Music
 
-A desktop music player for Windows that plays **your local files and YouTube
-streams in the same queue**, wrapped in a "Liquid Glass" UI whose lighting is
-driven by the current album art.
+**A desktop music player that treats your own files and YouTube Music as one library.**
 
-Built with Electron 36, React 18, Vite 6 and Tailwind CSS v4.
+Built with Electron and React. Windows installer, no account required for local playback.
 
-> **Status: pre-release.** This is a working app with a small number of testers.
-> It is not yet code-signed and does not auto-update. See
-> [Known gaps](#known-gaps) before shipping it to anyone.
+[![Latest release](https://img.shields.io/github/v/release/shami60/glaze-music?label=download&color=8b5cf6)](https://github.com/shami60/glaze-music/releases/latest)
+[![CI](https://github.com/shami60/glaze-music/actions/workflows/ci.yml/badge.svg)](https://github.com/shami60/glaze-music/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6)](#install)
+[![Built with](https://img.shields.io/badge/built%20with-Electron%20%2B%20React-61DAFB)](package.json)
 
----
+**[Download the installer →](https://github.com/shami60/glaze-music/releases/latest)**
 
-## What it actually does
+</div>
 
-**Playback**
-- One queue that mixes local file paths and remote stream URLs
-- Recursive library scanner for `.mp3 .flac .wav .ogg .aac .m4a .opus`
-- ID3/Vorbis metadata via `music-metadata` (title, artist, album, duration, embedded art)
-- 10-band equaliser, 8D spatial panning, reverb presets, adjustable playback speed
-- Shuffle, repeat-all, repeat-one, gapless-ish prefetch of the next track
-- Resumes playback position per track, and restores the queue + view on relaunch
-
-**Streaming**
-- YouTube search, home feed, playlists (with continuation paging), artist pages,
-  "up next" batches, and search suggestions
-- Stream resolution through `youtubei.js` (Innertube), with `yt-dlp` as the
-  download path and fallback resolver
-- Optional account linking for **YouTube** and **Spotify** so your cloud library
-  shows up alongside local files
-- Downloads land in a folder you choose and are folded back into the library
-
-**Interface**
-- Home dashboard, streaming browser, albums, artists + artist profiles,
-  playlists, liked songs, cloud library, listening insights, settings, profile
-- Floating capsule player bar, full-screen player, and a resizable mini-player
-  that can be pinned always-on-top
-- Synced LRC lyrics with optional machine translation and dual-language view
-- Discord Rich Presence, Windows taskbar thumbnail transport controls,
-  OS media keys, and a system tray menu
-- Setup wizard on first run, custom themes, accent colour extracted from album art
-- Backup / restore of everything to a single `.glaze` file
+![Glaze Music home screen](docs/screenshots/home.jpg)
 
 ---
 
-## Tech stack
+## What is Glaze Music?
 
-| Layer | Technology |
-|---|---|
-| Shell | Electron 36 (main + preload + renderer) |
-| Renderer | React 18, Vite 6, Tailwind CSS v4 |
-| Database | SQLite via `better-sqlite3` (WAL mode) |
-| Local metadata | `music-metadata` v10 |
-| Streaming | `youtubei.js` (Innertube) + bundled `yt-dlp.exe` |
-| Rich presence | `discord-rpc` |
+Most players make you choose. Local files or streaming. Your library or the cloud. Glaze Music keeps
+both in the same place: point it at a folder of music and it indexes everything into SQLite, then sign
+in to YouTube Music and its playlists, mixes and artist pages appear in the same sidebar.
 
----
+It is a real desktop app, not a wrapper around a website. Playback, the library index, downloads and
+lyrics all run locally. Your listening history stays on your machine.
 
-## Project structure
-
-```
-├── electron/
-│   ├── main.cjs        # Main process: windows, tray, media keys, all IPC handlers,
-│   │                   #   Innertube/yt-dlp streaming, downloads, custom protocols
-│   ├── preload.cjs     # contextBridge surface — window.electronAPI
-│   └── db.cjs          # SQLite schema + all queries (stats, history, metadata
-│                       #   cache, playlists, favourites, artists, library index)
-├── src/
-│   ├── App.jsx         # Root shell: routing, sidebar, global keyboard shortcuts
-│   ├── ErrorBoundary.jsx
-│   ├── main.jsx        # React entry point
-│   ├── index.css       # Tailwind import + Liquid Glass base styles
-│   ├── themes.js       # Built-in + custom theme definitions
-│   ├── lyricsUtils.js  # LRC parsing, RTL detection, translation helpers
-│   ├── utils.js        # formatTime, getArtURL, misc helpers
-│   ├── constants/
-│   ├── context/
-│   │   ├── context.js          # Raw context objects (PlayerContext, PlaybackTimeContext)
-│   │   ├── PlayerContext.jsx   # The audio engine + transport
-│   │   ├── LibraryContext.jsx  # Library, playlists, favourites, artists
-│   │   └── usePlayer.js        # usePlayer() / usePlaybackTime() hooks
-│   └── components/             # 25 view + control components (see below)
-├── scripts/            # One-off asset generation (icons, installer bitmaps, logos)
-├── build/              # NSIS installer assets
-├── index.html
-├── vite.config.js
-├── tailwind.config.js
-├── eslint.config.js
-└── package.json
-```
-
-### Components
-
-`AddToPlaylistModal` `AlbumsView` `ArtistProfileView` `ArtistsView`
-`AudioPlayer` `ClickableArtists` `CloudLibraryView` `ContextMenu`
-`FancyUsername` `FavouritesView` `FullScreenPlayer` `HomeDashboard`
-`ListeningInsightsDashboard` `LyricsView` `MiniPlayerView` `PlaylistsView`
-`ProfileView` `Queue` `QuickAudioControls` `SettingsView` `SetupWizard`
-`Sidebar` `StreamingView` `TitleBar` `TrackList`
+> **Not affiliated with YouTube or Google.** Glaze Music is an independent client. See the
+> [disclaimer](#disclaimer).
 
 ---
 
-## Getting started
+## Features
+
+### Your files and YouTube Music, side by side
+
+Point it at one or more folders and it scans them, reads ID3 tags and builds a searchable index.
+Albums, artists and playlists are derived from the files themselves — no metadata service, no upload.
+
+Sign in and YouTube Music's own shelves appear too: **Mixed for you**, **New releases**,
+**Artists you follow**. Both live in the same sidebar, and search covers both.
+
+<img src="docs/screenshots/youtube-music.jpg" alt="YouTube Music shelves inside Glaze Music" width="100%">
+
+### Lyrics that follow the vocal
+
+The full-screen player highlights lyrics **word by word**, paced by syllable count rather than
+character length — so a long word like "extraordinary" gets the time it needs, and a short one does not
+sit lit for a second.
+
+It is built for the awkward cases: instrumental breaks no longer drag the highlight along with them,
+right-to-left lyrics render correctly, and any line can be translated in place.
+
+<img src="docs/screenshots/lyrics.jpg" alt="Full-screen karaoke lyrics" width="100%">
+
+### Pin any playlist to the sidebar
+
+Hover a playlist anywhere — YouTube Music, Explore, an artist page — and pin it. It appears in a
+**Pinned** shelf and reopens in the view it came from, not whichever tab happens to be active.
+
+### A real 10-band equalizer
+
+Ten bands from 32 Hz to 16 kHz, seven presets, and an honest label: change a band by hand and the
+control reads **Custom** instead of pretending you are still on a preset.
+
+<img src="docs/screenshots/equalizer.jpg" alt="10-band equalizer with Bass Booster selected" width="100%">
+
+### Explore, built from what you actually play
+
+Artists you listen to, filter chips for mood and genre, trending charts, and recommendations seeded from
+your recent history. No sign-in needed for this side.
+
+<img src="docs/screenshots/explore.jpg" alt="Explore view with artists and recommendations" width="100%">
+
+### Artist pages worth opening
+
+Discography, top tracks, related artists and every appearance the artist makes in your library — on one
+page, without leaving playback.
+
+<img src="docs/screenshots/artist.jpg" alt="Artist page" width="100%">
+
+### The rest of it
+
+- **Offline downloads** — save tracks and albums, cover art included, into your library
+- **Queue with history** — reorder, play next, jump back
+- **8D spatial audio**, room reverbs, crossfade and playback speed
+- **Light and dark themes** — Daylight, Sandstone and Liquid Glass, plus your own accent colour
+- **Online updates** — checks on launch, installs on quit, and only downloads the parts that changed
+
+---
+
+## Install
+
+1. Download **[Glaze Music from Releases](https://github.com/shami60/glaze-music/releases/latest)**
+2. Run the installer — per-user install, no admin rights needed
+3. Point it at a folder of music, or sign in to YouTube Music
+
+> **Windows will warn you.** The installer is not code-signed yet, so SmartScreen shows
+> *"Windows protected your PC — Unknown publisher"*. Choose **More info → Run anyway**. Signing is the
+> only reason for that warning.
+
+`yt-dlp.exe` ships inside the installer, so downloads work out of the box. Nothing else to install.
+
+---
+
+## Build from source
+
+Requires **Node.js 22** or newer, and Windows for the installer target.
 
 ```bash
+git clone https://github.com/shami60/glaze-music.git
+cd glaze-music
 npm install
-npm run dev
+npm run dev          # hot-reloading dev build
 ```
 
-`npm run dev` starts Vite and Electron together and waits for the dev server.
-
-> **Windows note:** if Electron's binary fails to download, extract it manually
-> from the cache:
-> ```powershell
-> Get-ChildItem "$env:LOCALAPPDATA\electron\Cache" -Filter "*.zip"
-> Expand-Archive -Path "<path-to-zip>" -DestinationPath "node_modules\electron\dist" -Force
-> Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewline
-> ```
-
-`better-sqlite3` is a native module. After changing your Node or Electron
-version, rebuild it:
+To produce an installer locally:
 
 ```bash
-npx electron-rebuild -f -w better-sqlite3
+npm run release      # builds and packages into dist-electron/
 ```
 
+> `npm install` relies on the `overrides` block in `package.json`. Removing it makes every install fail
+> with `Invalid Version:` — `discord-rpc` pulls a dependency from a raw git URL.
+
 ---
 
-## Scripts
+## How it is put together
 
-| Script | Description |
+| Area | Choice |
 |---|---|
-| `npm run dev` | Vite dev server + Electron, together |
-| `npm run dev:vite` | Vite only |
-| `npm run dev:electron` | Electron only (waits for port 5173) |
-| `npm run build` | Build the renderer to `dist/` |
-| `npm run build:electron` | Build + package an NSIS installer via electron-builder |
-| `npm run preview` | Preview the built renderer |
-| `npm run lint` | ESLint over `src/`, `electron/`, `scripts/` |
-| `npm run lint:fix` | ESLint with `--fix` |
-| `npm run format` | Prettier write |
-| `npm run format:check` | Prettier check (CI-friendly) |
+| Shell | Electron 36 — `contextIsolation` on, `sandbox` on, no node in the renderer |
+| UI | React 18 + Tailwind, CSS-variable theming |
+| Library index | SQLite via `better-sqlite3`, chunked writes |
+| Streaming | Innertube client for YouTube Music; `yt-dlp` for high-quality audio |
+| Updates | `electron-updater` against GitHub Releases, differential via blockmaps |
+| CI | GitHub Actions — lint, logic checks and a build on every push; tag-driven releases |
+
+Two React contexts are kept deliberately separate: transport and metadata, and a ~4 Hz playback-time
+context, so position ticks do not re-render every consumer.
 
 ---
 
-## Data & storage
+## FAQ
 
-Everything lives under Electron's `userData` folder, except the human-readable
-backup:
+**Is it free?** Yes. No account, no telemetry, no upsell.
 
-| Location | Contents |
-|---|---|
-| `userData/glaze_data.db` | SQLite: play history, play counts (track/artist/album/hour/day), metadata cache, playlists, favourites, followed artists, artist art cache, **local library index** |
-| `Documents/Glaze Music/preferences.json` | Folders, playlists, favourites, followed artists, download folder |
-| `userData/*.cookies` | Encrypted account cookies (`safeStorage` / DPAPI) |
-| `userData/playback_state.json` | Queue, current index, volume, EQ, theme |
-| `userData/glaze_proxy.log` | Verbose stream logs — only written when `DEBUG_GLAZE` is set |
+**Does it work without signing in to YouTube Music?** Yes. The local library, playlists, favourites,
+equalizer, lyrics for local files and downloads all work offline. Only the streaming shelves need an
+account.
 
-The library index is **not** kept in `localStorage`; it lives in SQLite because a
-few thousand tracks exceeded the browser storage quota. `localStorage` holds only
-a small bounded mirror for a flash-free first paint.
+**What audio quality does it stream?** Around 160 kbps, because the source is YouTube — there is no
+lossless stream to offer. Files in your own library always play at their native quality.
 
-### Backup format
+**Can I use it on macOS or Linux?** Not today. The build targets Windows (NSIS). The Electron code is
+not Windows-specific, but nothing else is tested.
 
-Exports are JSON with a `schemaVersion` field. Bump `BACKUP_SCHEMA_VERSION` in
-`src/components/SettingsView.jsx` when the payload shape changes, and raise
-`MAX_SUPPORTED_SCHEMA_VERSION` once the new writer ships. Files without a
-`schemaVersion` are treated as the legacy pre-versioning format.
+**Where is my data?** In `%APPDATA%\glaze-music` on your machine. The library index, playlists and
+settings never leave it.
 
 ---
 
-## Architecture notes
+## Contributing
 
-A few things that are non-obvious if you're reading the code:
+Issues and pull requests are welcome. Before opening a PR, run what CI runs:
 
-**Two contexts, not one.** `PlayerContext` holds transport and metadata.
-`PlaybackTimeContext` holds only `currentTime` / `progress`, which tick ~4× per
-second. They are separate so that the seek bar and synced lyrics can re-render
-without dragging the other 18 `usePlayer()` consumers along. If you need a
-ticking clock, use `usePlaybackTime()` — never add `currentTime` back to
-`PlayerContext`.
+```bash
+npm run lint
+npm run test:backup
+npm run test:art
+npm run build
+```
 
-**Custom protocols, path-allow-listed.** Local audio is served over `media://`
-(with HTTP 206 range support) and embedded art over `art://`. Both resolve only
-paths under a root the user explicitly picked; anything else gets a 403.
+The ESLint baseline is **0 errors / 77 warnings**. A new warning usually means dead code or a stale
+dependency array — worth looking at rather than adding to the pile.
 
-**Play counts are threshold-based.** A play is logged once a track passes 30
-seconds or 50% of its duration, whichever comes first, deduplicated per load.
-Logging on load inflated the Insights dashboard.
-
-**Global keyboard shortcuts have one owner** — the effect in `App.jsx`. If you
-add a `window` keydown listener for a transport key anywhere else, two handlers
-will fire and cancel each other out.
+For anything touching releases or updates, read **[UPDATES.md](UPDATES.md)** first.
 
 ---
 
-## Security posture
+## Disclaimer
 
-- `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`
-- `webSecurity` is **on**; no `webviewTag`
-- Header rewriting (`onBeforeSendHeaders` / `onHeadersReceived`) is scoped to an
-  explicit allow-list of streaming hosts, not `*://*/*`
-- Account cookies are encrypted at rest with Electron's `safeStorage`
-- No plaintext third-party geo-lookup; country comes from `app.getLocaleCountryCode()`
-
-**Known architectural risk:** `youtubei.js` executes remote player JavaScript via
-`Platform.shim.eval`. Today that runs in the **main process** with full Node
-privileges, which is why `unsafe-eval` is in the CSP. Moving Innertube into a
-`utilityProcess` is the planned containment fix.
-
----
-
-## Known gaps
-
-Tracked in [`AUDIT-REPORT.md`](./AUDIT-REPORT.md), which contains the full audit
-this README was rewritten from.
-
-- **No code signing and no auto-update.** Windows SmartScreen will warn users.
-  This must be resolved before a public release.
-- **No crash reporting.** Failures are invisible once the app leaves your machine.
-- **Innertube runs in the main process** (see above).
-- **No test suite.** ESLint + Prettier are in place; automated tests are not.
-- **The repo carries large unused artefacts** (build caches, old installer
-  output) that should be pruned and gitignored.
-
-## Legal
-
-The YouTube and Spotify integrations use undocumented endpoints. Distributing an
-app that streams from these services may conflict with their terms of service.
-This has not been resolved and gates any public release.
+Glaze Music is an independent project, not affiliated with, endorsed by, or connected to YouTube or
+Google. It is a client for content you have access to; it does not host, mirror or redistribute any
+audio. Downloading content may be subject to the terms of the service it comes from — you are
+responsible for how you use it.
 
 ---
 
 ## License
 
-Not yet chosen. Treat as all rights reserved until a licence is added.
+No license has been chosen yet, which means **all rights are reserved** by default. You may download and
+use the app, but the source is not licensed for reuse or redistribution. A license will be added before
+the project accepts outside contributions.
