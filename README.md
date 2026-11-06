@@ -54,7 +54,7 @@ sit lit for a second.
 It is built for the awkward cases: instrumental breaks no longer drag the highlight along with them,
 right-to-left lyrics render correctly, and any line can be translated in place.
 
-<img src="docs/screenshots/lyrics.jpg" alt="Full-screen karaoke lyrics" width="100%">
+<img src="docs/screenshots/lyrics-demo.gif" alt="Lyrics highlighting word by word as the song plays" width="560">
 
 ### Pin any playlist to the sidebar
 
