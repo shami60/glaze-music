@@ -1,0 +1,10 @@
+dist
+dist-electron
+node_modules
+build
+yt_cache
+yt_cache_test
+public
+assets
+package-lock.json
+*.min.js

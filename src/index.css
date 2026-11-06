@@ -1,0 +1,993 @@
+@import "tailwindcss";
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   THEME TOKENS
+   ───────────────────────────────────────────────────────────────────────
+   `--color-white` is deliberately named after the Tailwind colour it
+   replaces. Tailwind v4 compiles `text-white/40` to
+   `color-mix(in oklab, var(--color-white) 40%, transparent)`, so overriding
+   this one variable re-colours ~370 existing utilities across 30 components
+   without editing any of them. Light themes set it to a near-black and the
+   entire UI inverts.
+
+   `--color-black` is deliberately NOT themed: it backs modal scrims
+   (`bg-black/40`) and text on bright buttons (`text-black`), both of which
+   must stay dark in light mode.
+
+   Derived tokens (`--glass-card`, `--hairline`, …) are declared once on
+   :root and reference `var(--color-white)`. Because they resolve on the same
+   element, a theme that only overrides `--color-white` gets matching glass
+   and borders for free.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+:root,
+[data-theme="liquid-glass"] {
+  color-scheme: dark;
+
+  /* Foreground. Everything text/border/glass derives from this. */
+  --color-white: #ffffff;
+  --ink-rgb: 255, 255, 255;
+  --color-black: #000000;
+
+  /* Canvas + solid surfaces */
+  --app-bg: #080808;
+  --surface-0: #090910;
+  --surface-1: #12121a;
+  --surface-2: #1a1a24;
+  --surface-dock: #101018;
+  --surface-menu: #0e0e14;
+
+  /* Glass + lines */
+  --glass-card: color-mix(in srgb, var(--color-white) 4%, transparent);
+  --glass-card-hover: color-mix(in srgb, var(--color-white) 8%, transparent);
+  --hairline: color-mix(in srgb, var(--color-white) 8%, transparent);
+  --hairline-strong: color-mix(in srgb, var(--color-white) 20%, transparent);
+  --hairline-soft: color-mix(in srgb, var(--color-white) 5%, transparent);
+
+  --glass-blur: 40px;
+  --glass-saturate: 180%;
+  --dock-blur: 60px;
+  /* Menus need to stay readable over content. Themes with no blur raise this. */
+  --menu-alpha: 45%;
+
+  /* Album-art backdrop layer */
+  --backdrop-opacity: 0.2;
+  --backdrop-blur: 28px;
+
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 1px 0 color-mix(in srgb, var(--color-white) 8%, transparent);
+  --shadow-card-hover: 0 8px 30px -4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px 0 color-mix(in srgb, var(--color-white) 16%, transparent);
+
+  --theme-accent: #8b5cf6;
+}
+
+/* ── Custom — palette generated at runtime from the user's colour ─────────── */
+/* This block is only a fallback: App.jsx writes the derived tokens as inline
+   custom properties on <html>, which win over anything declared here. Keeping
+   the block means a `data-theme="custom"` set by the pre-paint script still
+   renders something sane before React computes the real palette. */
+[data-theme="custom"] {
+  color-scheme: dark;
+  --color-white: #f5f3fa;
+  --ink-rgb: 245, 243, 250;
+  --app-bg: #0b0812;
+  --surface-0: #100c19;
+  --surface-1: #16111f;
+  --surface-2: #1e1729;
+  --surface-dock: #120e1b;
+  --surface-menu: #100c19;
+  --glass-blur: 40px;
+  --glass-saturate: 180%;
+  --dock-blur: 60px;
+  --menu-alpha: 45%;
+  --backdrop-opacity: 0.2;
+  --backdrop-blur: 28px;
+  --theme-accent: #8b5cf6;
+}
+
+/* ── Daylight — light, cool neutral ──────────────────────────────────────── */
+[data-theme="daylight"] {
+  color-scheme: light;
+  --color-white: #0e1116;
+  --ink-rgb: 14, 17, 22;
+  --app-bg: #eceef3;
+  --surface-0: #e3e6ec;
+  --surface-1: #f7f8fa;
+  --surface-2: #ffffff;
+  --surface-dock: #ffffff;
+  --surface-menu: #ffffff;
+  --menu-alpha: 86%; /* light menus need more body than dark ones */
+  --glass-blur: 24px;
+  --glass-saturate: 120%;
+  --dock-blur: 24px;
+  --backdrop-opacity: 0.1;
+  --backdrop-blur: 28px;
+  --theme-accent: #2563eb;
+  --hairline: color-mix(in srgb, var(--color-white) 13%, transparent);
+  --hairline-strong: color-mix(in srgb, var(--color-white) 26%, transparent);
+  --hairline-soft: color-mix(in srgb, var(--color-white) 9%, transparent);
+  --shadow-card: 0 2px 10px -2px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --shadow-card-hover: 0 8px 24px -6px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* ── Sandstone — light, warm ─────────────────────────────────────────────── */
+[data-theme="sandstone"] {
+  color-scheme: light;
+  --color-white: #1f1913;
+  --ink-rgb: 31, 25, 19;
+  --app-bg: #f0e9dd;
+  --surface-0: #e8dfd0;
+  --surface-1: #faf5ec;
+  --surface-2: #fffdf8;
+  --surface-dock: #fffdf8;
+  --surface-menu: #fffdf8;
+  --menu-alpha: 86%; /* light menus need more body than dark ones */
+  --glass-blur: 20px;
+  --glass-saturate: 110%;
+  --dock-blur: 20px;
+  --backdrop-opacity: 0.09;
+  --backdrop-blur: 26px;
+  --theme-accent: #b45309;
+  --hairline: color-mix(in srgb, var(--color-white) 14%, transparent);
+  --hairline-strong: color-mix(in srgb, var(--color-white) 28%, transparent);
+  --hairline-soft: color-mix(in srgb, var(--color-white) 10%, transparent);
+  --shadow-card: 0 2px 10px -2px rgba(80, 60, 40, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --shadow-card-hover: 0 8px 24px -6px rgba(80, 60, 40, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* ── Graphite — the dark twin of Daylight: no backdrop image at all, the
+   album colour bleed is the only thing behind the glass. */
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--app-bg);
+  color: var(--color-white);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Text selection ──────────────────────────────────────────────────────── */
+/* A blanket `user-select: none` on the root made ALL text unselectable, so
+   users couldn't copy a track title or an error message. Suppress selection
+   only on interactive chrome (where it interferes with dragging), and keep it
+   on everywhere real text lives. */
+button,
+[role="button"],
+[role="slider"],
+[role="tab"],
+[role="switch"],
+svg,
+img {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ── Content sitting on photography ──────────────────────────────────────── */
+/* Text over album art / hero images must stay white even in light themes.
+   Utilities like `text-white/60` resolve --color-white on the element itself,
+   so pinning it here restores the original contrast for the whole subtree. */
+.on-media {
+  --color-white: #ffffff;
+  --ink-rgb: 255, 255, 255;
+}
+
+/* Solid `bg-white` means "a white surface", not "theme foreground". Tailwind
+   compiles it to var(--color-white), which in a light theme is near-black — so
+   every white chip and play button turned into a black blob with a black icon.
+   Opacity variants (`bg-white/10`) are deliberately left alone: those are subtle
+   overlays and *should* follow the theme. */
+.bg-white {
+  background-color: #ffffff;
+}
+
+/* Solid accent buttons keep white labels in every theme: `text-white` on a
+   saturated red/green would otherwise flip to near-black and lose contrast. */
+.on-accent {
+  --color-white: #ffffff;
+  --ink-rgb: 255, 255, 255;
+}
+
+/* ── Focus visibility ────────────────────────────────────────────────────── */
+/* Keyboard users had no focus indicator anywhere in the app. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--theme-accent) 85%, var(--color-white));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* The slider/scrubber handles draw their own track; don't double-ring them. */
+input[type="range"]:focus-visible {
+  outline-offset: 4px;
+}
+
+img {
+  image-rendering: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--color-white) 12%, transparent); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-white) 25%, transparent); }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* ── Hardware-Accelerated Smooth Scrolling Containers ── */
+.custom-scrollbar,
+.overflow-y-auto {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: scroll-position;
+  contain: paint;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Offscreen Render Optimization (Zero GPU overdraw during scrolling) ── */
+.liquid-glass-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
+
+/* ── Ambient colour fade ────────────────────────────────────────────────────
+   `background` with a gradient cannot be transitioned — the browser has no way
+   to interpolate two radial-gradients, so changing the accent colour snapped.
+   Registering the colour as a typed custom property makes it animatable, and
+   the gradients that reference it repaint every frame while it eases. */
+@property --ambient-color {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(80, 80, 180, 1);
+}
+
+.ambient-layer {
+  transition: --ambient-color 1100ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Sidebar width ──────────────────────────────────────────────────────────
+   The shell publishes `--sidebar-w` for the `fixed` player dock, which cannot
+   see the flex row. It is registered so a stray transition on it stays
+   interpolable — but it deliberately does **not** animate: the sidebar is an
+   overlay now, so animating this variable would only re-introduce the per-frame
+   relayout of the content column (measured 14 fps on Explore vs 73 on Home).
+   See `Sidebar.jsx` for the transform that replaced it. */
+@property --sidebar-w {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 205px;
+}
+
+/* ── Ambient mode ───────────────────────────────────────────────────────────
+   When the album-art colour bleed is on, the glass gets thinner so the colour
+   actually reads through the player bar and the menus instead of being sealed
+   behind an opaque fill. App.jsx sets data-ambience on <html>. */
+[data-ambience="on"] .liquid-glass-dock {
+  background: color-mix(in srgb, var(--surface-dock) 70%, transparent);
+}
+[data-ambience="on"] .menu-surface {
+  background: color-mix(in srgb, var(--surface-menu) 90%, transparent);
+}
+
+/* ── Hardware-Isolated Animated PFP & Avatars (Zero GIF GPU Overdraw) ── */
+.optimized-pfp {
+  contain: strict !important;
+  isolation: isolate !important;
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   LIQUID GLASS DESIGN SYSTEM (CRISP & ANTI-ALIASED)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Seamless Sidebar Panel — perfectly matched with TitleBar & dynamic background */
+.glass-sidebar {
+  background: transparent;
+  border-right: 1px solid var(--hairline-soft);
+  transform: translateZ(0);
+}
+
+/* Seamless Sidebar Nav Items */
+.sidebar-nav-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--color-white) 65%, transparent);
+  background: transparent;
+  border: 1px solid transparent;
+  contain: content;
+  isolation: isolate;
+  transform: translateZ(0);
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-nav-btn:hover {
+  color: var(--color-white);
+  background: color-mix(in srgb, var(--color-white) 7%, transparent);
+}
+
+.sidebar-nav-btn.active {
+  color: var(--color-white);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--color-white) 12%, transparent);
+}
+
+/* Main content panel — clean transparent container, avoiding nested blur raster downsampling */
+.glass-content {
+  background: transparent;
+  isolation: isolate;
+}
+
+/* Seamless Liquid Glass Cards — Pure translucent frosted glass (Zero-Overdraw GPU Optimized) */
+.liquid-glass-card {
+  background: var(--glass-card);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+  contain: content;
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform, background-color, border-color;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.liquid-glass-card:hover {
+  background: var(--glass-card-hover);
+  border-color: var(--hairline-strong);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px) translateZ(0);
+}
+
+/* Liquid Glass Floating Player Capsule */
+.liquid-glass-dock {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 9999px;
+  /* Real frosted glass: a blurred, over-saturated sample of whatever scrolls
+     behind it, a mostly-opaque surface so text keeps contrast, a 1px light rim
+     and an inner top highlight to fake the thickness of the pane.
+     `transform: translateZ(0)` and `contain: paint` used to sit here for
+     compositing cost — both stop Chromium from sampling the backdrop, which is
+     why the bar read as "just transparent" instead of glass. */
+  background: color-mix(in srgb, var(--surface-dock) 62%, transparent);
+  -webkit-backdrop-filter: blur(32px) saturate(190%) brightness(1.08);
+  backdrop-filter: blur(32px) saturate(190%) brightness(1.08);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 18px 45px -12px rgba(0, 0, 0, 0.55),
+    0 2px 10px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10);
+  transition: box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease;
+}
+
+/* A soft specular sheen across the top half — the thing that makes a glass
+   surface read as glass rather than a tinted rectangle. */
+.liquid-glass-dock::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 42%, rgba(255, 255, 255, 0) 62%);
+  pointer-events: none;
+}
+
+.liquid-glass-dock > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Dark themes: the player bar is NOT themed. It keeps the light-mode pane
+   exactly as it is, so rather than restyling it we re-declare the surface and
+   ink variables inside the bar — every `text-white/*`, `bg-white/*` and
+   `rgba(var(--ink-rgb))` inside then resolves the same way it does on a light
+   theme. Change nothing else here. */
+[data-theme="liquid-glass"] .liquid-glass-dock,
+[data-theme="custom"] .liquid-glass-dock {
+  --surface-dock: #faf7f2;
+  --color-white: #1f1913;
+  --ink-rgb: 31, 25, 19;
+  color: #1f1913; /* icons using bare currentColor */
+  /* Same light pane, with two thin washes over it: the cover's colour (so the bar
+     belongs to the artwork) and a little black (so it is not as bright as the
+     light theme). Both stay small — this should read as a dimmed light bar. */
+  background:
+    linear-gradient(rgba(0, 0, 0, var(--dock-shade, 0.075)), rgba(0, 0, 0, var(--dock-shade, 0.075))),
+    linear-gradient(
+      color-mix(in srgb, var(--dock-tint, #ffffff) 14%, transparent),
+      color-mix(in srgb, var(--dock-tint, #ffffff) 14%, transparent)
+    ),
+    color-mix(in srgb, var(--surface-dock) 68%, transparent);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 18px 45px -12px rgba(0, 0, 0, 0.55),
+    0 2px 10px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Bottom player bar fallback */
+.glass-player {
+  background: transparent;
+}
+
+/* Context / dropdown menu — no visible edges */
+.glass-menu {
+  background: color-mix(in srgb, var(--surface-menu) var(--menu-alpha), transparent);
+  backdrop-filter: blur(var(--dock-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--glass-saturate));
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Floating dropdown / popover surface. The three player menus used to hardcode
+   a dark gradient, which left dark text on a dark panel once light themes
+   existed. Derived from the theme's menu colour instead. */
+.menu-surface {
+  /* Flat rather than a gradient: Lightning CSS cannot fold a color-mix() whose
+     operands are both var()s and silently collapses it to one colour anyway. */
+  background: var(--surface-menu);
+  border-color: var(--hairline-strong);
+  box-shadow:
+    0 20px 50px -10px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px color-mix(in srgb, var(--color-white) 12%, transparent);
+}
+
+/* Generic glass card (kept for backward compat) */
+.glass {
+  background: var(--glass-card);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+.glass-strong {
+  background: var(--glass-card-hover);
+  backdrop-filter: blur(var(--dock-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(var(--glass-saturate));
+}
+
+/* ── Range Input (seek/volume sliders) ───────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--color-white) 12%, transparent);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-white);
+  margin-top: -4px;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-white) 40%, transparent);
+  transition: transform 0.1s ease;
+}
+input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.25); }
+
+/* ── Draggable title bar region ──────────────────────────────────────────── */
+.drag-region  { -webkit-app-region: drag;    }
+.no-drag      { -webkit-app-region: no-drag; }
+
+/* ── Track item hover (kept for Queue) ──────────────────────────────────── */
+.track-item { transition: background 0.15s ease; }
+.track-item:hover { background: color-mix(in srgb, var(--color-white) 5%, transparent); }
+.track-item.active { background: color-mix(in srgb, var(--color-white) 9%, transparent); }
+
+/* ── Dynamic Background Animation ───────────────────────────────────────── */
+@keyframes pan-bg {
+  0% { transform: scale(1.3) translate(-3%, -3%) rotate(-1deg); }
+  33% { transform: scale(1.4) translate(2%, -1%) rotate(0deg); }
+  66% { transform: scale(1.35) translate(-1%, 3%) rotate(1deg); }
+  100% { transform: scale(1.45) translate(3%, 1%) rotate(-0.5deg); }
+}
+
+.animate-pan {
+  animation: pan-bg 25s infinite alternate ease-in-out;
+}
+
+/* ── Breathing Glow Animation ──────────────────────────────────────────── */
+@keyframes glow-breathe {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(29, 185, 84, 0.15), 0 0 16px rgba(29, 185, 84, 0.1);
+    border-color: rgba(29, 185, 84, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(29, 185, 84, 0.35), 0 0 24px rgba(29, 185, 84, 0.25);
+    border-color: rgba(29, 185, 84, 0.6);
+  }
+}
+
+.breathing-glow {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+
+/* ── Gradient Shimmer Animation ─────────────────────────────────────────── */
+@keyframes gradient-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  animation: gradient-shimmer 4s ease-in-out infinite;
+}
+
+@keyframes glass-slide-down {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.glass-notification {
+  animation: glass-slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Mini Player Specific Polish ─────────────────────────────────────────── */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+input[type="range"].mini-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  border-radius: 50% !important;
+  background: var(--color-white) !important;
+  transition: width 0.15s ease, height 0.15s ease, opacity 0.15s ease !important;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-white) 80%, transparent) !important;
+  opacity: 0 !important;
+}
+input[type="range"].mini-scrubber:hover::-webkit-slider-thumb {
+  width: 8px !important;
+  height: 8px !important;
+  opacity: 1 !important;
+  margin-top: -2.5px !important;
+}
+
+input[type="range"].mini-vol::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: var(--color-white) !important;
+  margin-top: -2px !important;
+  box-shadow: 0 0 4px color-mix(in srgb, var(--color-white) 60%, transparent) !important;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   FANCY TEXT (0-RESOURCE STATIC GRADIENT)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.fancy-text-base {
+  display: inline-block;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MOTION — one system for every micro-interaction
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  /* Hover feedback has to land inside ~120ms or the pointer feels like it is
+     dragging the UI behind it. Only things that genuinely unfold (menus,
+     view changes) get the longer values. */
+  --dur-fast: 90ms;
+  --dur-base: 150ms;
+  --dur-slow: 320ms;
+}
+
+/* Every interactive surface shares the same easing curve and duration, so
+   hovers across the app read as one behaviour instead of a pile of ad-hoc
+   transitions. Kept on `transform`/`opacity`/colours only — all compositor-
+   friendly, nothing that triggers layout. */
+button,
+[role="button"],
+a,
+.sidebar-nav-btn,
+.liquid-glass-dock,
+.menu-surface,
+.glass-menu {
+  /* transform + colour only. box-shadow is deliberately absent: it is a paint
+     property, and transitioning it on every button made fast pointer movement
+     repaint far more than the compositor could keep up with. */
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* Tailwind's `transition-all` tweens *every* animatable property — box-shadow,
+   width, height, background-position. On a screen full of hoverable rows that
+   is what made fast pointer movement feel laggy, and it also out-specifies the
+   button rule above. Narrow it to properties the compositor can handle. */
+.transition-all {
+  transition-property: color, background-color, border-color, opacity, transform, filter;
+}
+
+/* Press feedback. Tailwind's own active:scale-* wins on specificity, so this
+   only fills in the buttons that had no press state at all. */
+button:not(:disabled):active,
+[role="button"]:active {
+  transform: scale(0.97);
+}
+
+/* Hover-in speed. The transition used when the pointer ENTERS is read from the
+   :hover state, so this decides how "instant" a hover feels — and it out-
+   specifies Tailwind's duration-300 (0,1,1 vs 0,1,0), which is why every
+   hover felt a third of a second behind the cursor. Hover-out keeps the
+   element's own duration, which reads as a soft fade and is never noticed. */
+button:hover,
+[role="button"]:hover,
+a:hover,
+.sidebar-nav-btn:hover,
+.glass-menu:hover {
+  transition-duration: var(--dur-fast);
+}
+
+/* Cards lift a hair under the pointer. The shadow is NOT animated: these sit on
+   backdrop-filter, so a shadow tween repaints the whole blurred region every
+   frame and was the main source of the "laggy hover" feeling. */
+.liquid-glass-card {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.liquid-glass-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Sidebar rows nudge toward the content they open. */
+.sidebar-nav-btn:hover {
+  transform: translateX(2px);
+}
+
+/* No svg-level transform here on purpose: it would out-specify utilities
+   like .rotate-180 and break chevrons that flip when a menu opens. */
+
+/* View entrance: every route change fades up instead of snapping. */
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.view-enter {
+  animation: view-in var(--dur-slow) var(--ease-out) both;
+}
+
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.pop-in {
+  animation: pop-in var(--dur-base) var(--ease-spring) both;
+}
+
+/* Keyboard focus stays visible without being noisy. */
+:focus-visible {
+  transition: outline-offset var(--dur-fast) var(--ease-out);
+  outline-offset: 3px;
+}
+
+/* ── Fullscreen player backdrop ───────────────────────────────────────────
+   Slow, continuous motion so the surface feels alive rather than a static
+   gradient. Only `transform` is animated — the 64px blur is rasterised once
+   and the layer is then moved by the compositor, so this costs nothing per
+   frame. Durations are deliberately long (34-48s): anything faster reads as
+   a loading spinner, not as ambience. */
+@keyframes fs-drift {
+  0%   { transform: scale(1.18) translate3d(-1.5%, -1%, 0); }
+  50%  { transform: scale(1.26) translate3d(1.5%, 1.5%, 0); }
+  100% { transform: scale(1.18) translate3d(-1.5%, -1%, 0); }
+}
+
+@keyframes fs-float-a {
+  0%   { transform: translate3d(-14%, -10%, 0) scale(1); }
+  50%  { transform: translate3d(6%, 8%, 0) scale(1.18); }
+  100% { transform: translate3d(-14%, -10%, 0) scale(1); }
+}
+
+@keyframes fs-float-b {
+  0%   { transform: translate3d(12%, 14%, 0) scale(1.12); }
+  50%  { transform: translate3d(-8%, -8%, 0) scale(0.94); }
+  100% { transform: translate3d(12%, 14%, 0) scale(1.12); }
+}
+
+.fs-art {
+  background-size: cover;
+  background-position: center;
+  filter: blur(64px) saturate(170%);
+  opacity: 0.72;
+  will-change: transform;
+  animation: fs-drift 48s ease-in-out infinite;
+}
+
+.fs-blob {
+  position: absolute;
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.42;
+  will-change: transform;
+}
+.fs-blob-a {
+  top: -12%;
+  left: -12%;
+  animation: fs-float-a 34s ease-in-out infinite;
+}
+.fs-blob-b {
+  bottom: -16%;
+  right: -12%;
+  animation: fs-float-b 44s ease-in-out infinite;
+}
+
+/* ── Master switch ────────────────────────────────────────────────────────
+   data-motion="off" on <html> kills every transition and animation in one
+   rule. 0.01ms rather than 0 because `transitionend` listeners still need to
+   fire, and some of ours drive state. */
+[data-motion="off"] *,
+[data-motion="off"] *::before,
+[data-motion="off"] *::after {
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+[data-motion="off"] .liquid-glass-card:hover,
+[data-motion="off"] .sidebar-nav-btn:hover,
+[data-motion="off"] button:not(:disabled):active {
+  transform: none;
+}
+
+/* ── Connectivity strip ────────────────────────────────────────────────────
+   The offline bar has to be legible on *every* theme, so its ink is derived
+   from the theme's own ink (`--color-white`) instead of a hardcoded pale
+   amber. Those literals were written against the dark default and turned into
+   unreadable beige-on-beige the moment daylight/sandstone was selected. One
+   rule per state, no per-theme lists to keep in sync. */
+
+.glaze-strip {
+  background: color-mix(in srgb, var(--strip-hue) 20%, var(--app-bg));
+  color: color-mix(in srgb, var(--strip-ink) 70%, var(--color-white));
+  border-bottom: 1px solid color-mix(in srgb, var(--strip-hue) 42%, transparent);
+}
+.glaze-strip--offline { --strip-hue: #f59e0b; --strip-ink: #b45309; }
+.glaze-strip--online { --strip-hue: #10b981; --strip-ink: #047857; }
+
+/* ── Readable secondary text ────────────────────────────────────────────────
+   `text-white/40` is the app's "secondary" everywhere, but a single alpha
+   cannot serve both a dark and a light theme. On light surfaces 40% ink is
+   ~2.4:1 against the page (WCAG AA wants 4.5:1), which made every artist
+   name, section label and track count nearly disappear. Rather than rewrite
+   ~330 call sites, the utilities are re-pointed per theme: dark themes get a
+   small lift (40% -> 52%, ~5.6:1), light themes a larger one (-> 64%, ~4.8:1).
+   The order of the steps is preserved, so hierarchy survives. */
+
+[data-theme="daylight"] .text-white\/20,
+[data-theme="sandstone"] .text-white\/20 { color: color-mix(in srgb, var(--color-white) 62%, transparent); }
+[data-theme="daylight"] .text-white\/25,
+[data-theme="sandstone"] .text-white\/25 { color: color-mix(in srgb, var(--color-white) 64%, transparent); }
+[data-theme="daylight"] .text-white\/30,
+[data-theme="sandstone"] .text-white\/30 { color: color-mix(in srgb, var(--color-white) 66%, transparent); }
+[data-theme="daylight"] .text-white\/35,
+[data-theme="sandstone"] .text-white\/35 { color: color-mix(in srgb, var(--color-white) 68%, transparent); }
+[data-theme="daylight"] .text-white\/40,
+[data-theme="sandstone"] .text-white\/40 { color: color-mix(in srgb, var(--color-white) 72%, transparent); }
+[data-theme="daylight"] .text-white\/50,
+[data-theme="sandstone"] .text-white\/50 { color: color-mix(in srgb, var(--color-white) 80%, transparent); }
+/* /60 and /70 are the "pill label / secondary button" steps. They looked fine on
+   dark but vanished on light (60% white on sandstone is ~2.9:1), which is how
+   the YouTube Music tab bar rendered as blank pills. Same ladder, next steps. */
+[data-theme="daylight"] .text-white\/60,
+[data-theme="sandstone"] .text-white\/60 { color: color-mix(in srgb, var(--color-white) 86%, transparent); }
+[data-theme="daylight"] .text-white\/70,
+[data-theme="sandstone"] .text-white\/70 { color: color-mix(in srgb, var(--color-white) 90%, transparent); }
+
+[data-theme="liquid-glass"] .text-white\/20,
+[data-theme="custom"] .text-white\/20 { color: color-mix(in srgb, var(--color-white) 38%, transparent); }
+[data-theme="liquid-glass"] .text-white\/25,
+[data-theme="custom"] .text-white\/25 { color: color-mix(in srgb, var(--color-white) 42%, transparent); }
+[data-theme="liquid-glass"] .text-white\/30,
+[data-theme="custom"] .text-white\/30 { color: color-mix(in srgb, var(--color-white) 46%, transparent); }
+[data-theme="liquid-glass"] .text-white\/35,
+[data-theme="custom"] .text-white\/35 { color: color-mix(in srgb, var(--color-white) 49%, transparent); }
+[data-theme="liquid-glass"] .text-white\/40,
+[data-theme="custom"] .text-white\/40 { color: color-mix(in srgb, var(--color-white) 52%, transparent); }
+[data-theme="liquid-glass"] .text-white\/50,
+[data-theme="custom"] .text-white\/50 { color: color-mix(in srgb, var(--color-white) 62%, transparent); }
+[data-theme="liquid-glass"] .text-white\/60,
+[data-theme="custom"] .text-white\/60 { color: color-mix(in srgb, var(--color-white) 70%, transparent); }
+[data-theme="liquid-glass"] .text-white\/70,
+[data-theme="custom"] .text-white\/70 { color: color-mix(in srgb, var(--color-white) 78%, transparent); }
+
+/* Now-playing equaliser, used on the active row in track grids. Three bars that
+   breathe out of phase — reads as "this is playing" without a heavy fill. */
+@keyframes eq-bounce {
+  0%, 100% { height: 25%; }
+  50%      { height: 95%; }
+}
+.eq-bar {
+  width: 3px;
+  border-radius: 1px;
+  height: 40%;
+  animation: eq-bounce 900ms ease-in-out infinite;
+}
+[data-motion="off"] .eq-bar {
+  animation: none;
+  height: 60%;
+}
+
+/* ── Mini player control bar ────────────────────────────────────────────────
+   The same frosted-pane idea as the dock, but scoped to the bar itself so the
+   cover above it stays sharp. Colours are fixed (not theme tokens) because this
+   surface always sits on artwork. */
+.mini-glass-bar {
+  position: relative;
+  border-radius: 18px;
+  background: rgba(22, 22, 26, 0.38);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(24px) saturate(180%) brightness(1.06);
+  box-shadow:
+    0 12px 32px -12px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mini-glass-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 48%, rgba(255,255,255,0) 70%);
+}
+.mini-glass-bar > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Light themes: the mini card sits on artwork, so its root pins white ink. The
+   bar itself is a light pane there, which means its own ink has to flip back to
+   dark — same trick as the dock, scoped to the bar. */
+[data-theme="daylight"] .mini-glass-bar,
+[data-theme="sandstone"] .mini-glass-bar {
+  --color-white: #1f1913;
+  --ink-rgb: 31, 25, 19;
+  color: #1f1913;
+  background: color-mix(in srgb, var(--surface-dock) 74%, transparent);
+  box-shadow:
+    0 12px 32px -12px rgba(0, 0, 0, 0.35),
+    0 1px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+[data-theme="daylight"] .mini-glass-bar::before,
+[data-theme="sandstone"] .mini-glass-bar::before {
+  background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.10) 48%, rgba(255,255,255,0) 70%);
+}
+
+/* Lyrics panel rises from the bottom edge as its own sheet. */
+@keyframes lyrics-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lyrics-rise {
+  animation: lyrics-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+[data-motion="off"] .lyrics-rise { animation: none; }
+
+
+
+/* ── Lyrics page backdrop ──────────────────────────────────────────────────
+   Three colour fields tinted by the cover art, drifting on long, out-of-phase
+   loops so the wash never repeats visibly. Only `transform` animates, and the
+   softness comes from the radial gradients themselves rather than a blur
+   filter, so nothing has to be re-rasterised per frame. */
+.lyric-blob {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+.lyric-blob-1 { width: 78vmax; height: 78vmax; left: -24vmax; top: -26vmax; animation: lyric-drift-1 38s ease-in-out infinite; }
+.lyric-blob-2 { width: 66vmax; height: 66vmax; right: -20vmax; bottom: -24vmax; animation: lyric-drift-2 46s ease-in-out infinite; }
+.lyric-blob-3 { width: 52vmax; height: 52vmax; left: 30%; top: 24%; animation: lyric-drift-3 31s ease-in-out infinite; }
+
+@keyframes lyric-drift-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(7vmax, 5vmax, 0) scale(1.14); }
+}
+@keyframes lyric-drift-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.06); }
+  50%      { transform: translate3d(-8vmax, -4vmax, 0) scale(0.94); }
+}
+@keyframes lyric-drift-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-5vmax, 6vmax, 0) scale(1.18); }
+}
+
+/* Volume drawer: animating `all` also animated the pointer-events swap, which
+   is what made the reveal look like it jumped instead of eased. */
+.vol-drawer {
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The fader fill glides between values instead of snapping. */
+.vol-fader {
+  transition: background 140ms linear;
+}

@@ -1,0 +1,115 @@
+{
+  "name": "glaze-music",
+  "version": "1.0.4",
+  "description": "Glaze Music — A native high-performance universal media player",
+  "author": "shami60",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shami60/glaze-music.git"
+  },
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k --success first -n vite,electron -c cyan,magenta \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http-get://127.0.0.1:5173 && node scripts/dev-electron.cjs",
+    "build": "vite build",
+    "build:electron": "npm run build && electron-builder --publish never && node scripts/stamp-release-notes.cjs",
+    "release": "npm run build && electron-builder --publish never && node scripts/stamp-release-notes.cjs",
+    "verify:update": "node scripts/verify-update-feed.cjs",
+    "verify:release": "node scripts/verify-hosted-release.mjs",
+    "test:art": "node scripts/test-art-sizes.mjs",
+    "test:backup": "node scripts/test-backup.mjs",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"electron/**/*.cjs\" \"scripts/**/*.cjs\" \"*.{js,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\" \"electron/**/*.cjs\" \"scripts/**/*.cjs\" \"*.{js,json,md}\""
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "discord-rpc": "^4.0.1",
+    "electron-updater": "^6.8.11",
+    "music-metadata": "^10.4.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "youtubei.js": "^17.2.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "@tailwindcss/postcss": "^4.1.7",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^36.9.5",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "postcss": "^8.5.3",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^4.1.7",
+    "vite": "^6.3.5",
+    "wait-on": "^8.0.3"
+  },
+  "overrides": {
+    "discord-rpc": {
+      "register-scheme": "0.0.2"
+    }
+  },
+  "build": {
+    "appId": "com.glazemusic.app",
+    "productName": "Glaze Music",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "shami60",
+        "repo": "glaze-music"
+      }
+    ],
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      },
+      "yt-dlp.exe"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Glaze Music",
+      "uninstallDisplayName": "Glaze Music ${version}",
+      "artifactName": "Glaze-Music-${version}.${ext}",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerHeaderIcon": "assets/icon.png",
+      "runAfterFinish": true,
+      "license": "assets/features.rtf",
+      "include": "build/installer.nsh"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+# Normalise text, never touch binaries. Without this, a Windows clone rewrites
+# line endings inside yt-dlp.exe and the bundled images and they stop working.
+* text=auto eol=lf
+
+*.exe   binary
+*.ico   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.gif   binary
+*.bmp   binary
+*.rtf   binary
+
+*.bat   text eol=crlf
+*.cmd   text eol=crlf

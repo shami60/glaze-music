@@ -1,0 +1,5 @@
+const e = require('electron')
+console.log('typeof require(electron):', typeof e)
+console.log('has app:', typeof e === 'object' && !!e.app)
+console.log('electron version:', process.versions.electron)
+console.log('RUN_AS_NODE:', process.env.ELECTRON_RUN_AS_NODE)

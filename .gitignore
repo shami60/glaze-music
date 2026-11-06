@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+
+# Build output. `dist-*/` is the catch-all: electron-builder writes to whatever
+# `--config.directories.output` says, so new names (dist-gh, dist-final, …) must
+# not need a .gitignore edit to stay out of the repo.
+dist/
+dist-*/
+dist-electron/
+dist-release/
+release/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+glaze_proxy.log
+
+# Executables & Installers (don't commit binaries)
+*.exe
+*.blockmap
+*.dmg
+*.zip
+!yt-dlp.exe
+
+# Signing material — never publish a certificate or key
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+
+# IDE
+.vscode/
+.idea/
+
+# Cache
+# NOTE: the real folders use an underscore (yt_cache), not a hyphen. The old
+# `yt-cache/` rule matched nothing, so both caches were being tracked.
+yt_cache/
+yt_cache_test/
+yt-cache/
+
+# Scratch / debug leftovers
+scratch*/
+*-player-script.js
+.tmp-*
+diag_*.txt
+test_out.txt
+test_err.txt
+test.cjs
+test.js
+proto.txt
+*-watch.html
+*.exe.old
+.update-test/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Local databases, cookies and per-user state — these contain the user's listening
+# history, library paths and (encrypted) YouTube session. Never publish them.
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+yt_cookies*
+logs/
+
+# Internal notes. AUDIT-REPORT* is a map of every known weakness in the app — it is
+# a checklist for an attacker, not documentation for users.
+AUDIT-REPORT*.md
+RIFF-*.md
+
+# Assistant / session state (contains absolute paths from this machine)
+.workbuddy-ai/
