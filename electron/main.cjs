@@ -4707,7 +4707,7 @@ app.whenReady().then(async () => {
 // and closes the socket. `discord-rpc` surfaces that only as "connection closed",
 // which reads exactly like "Discord is not running" — it is not. To tell the two
 // apart, check for the pipe: \\.\pipe\discord-ipc-0.
-const DISCORD_CLIENT_ID = process.env.GLAZE_DISCORD_CLIENT_ID || '1376212186966655028'
+const DISCORD_CLIENT_ID = process.env.GLAZE_DISCORD_CLIENT_ID || '1568359236205936680'
 
 let discordRPC = null
 let rpcConnected = false
