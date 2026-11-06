@@ -4741,7 +4741,7 @@ function initDiscordRPC() {
         // clients do not surface it at all.
         // The label has to do the work: nothing else on the card hints that any
         // of it is clickable. Emoji renders in RPC button labels.
-        args.activity.buttons = [{ label: '🎧 Open Glaze Music', url: SITE_URL }]
+        args.activity.buttons = [{ label: '🎧 What is Glaze Music?', url: SITE_URL }]
       }
       return sendRequest(cmd, args)
     }
