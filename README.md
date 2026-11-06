@@ -19,6 +19,8 @@ Built with Electron and React. Windows installer, no account required for local 
 
 <img src="docs/screenshots/lyrics.jpg" alt="Full-screen player with the active lyric line highlighted" width="100%">
 
+<img src="docs/screenshots/recommendations.jpg" alt="Album and playlist grid built from recent listening" width="100%">
+
 ---
 
 ## What is Glaze Music?
