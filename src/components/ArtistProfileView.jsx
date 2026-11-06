@@ -5,6 +5,7 @@ import { getHighQualityArtURL, getSizedArtURL, onArtLoad, formatTime } from '../
 import ContextMenu from './ContextMenu'
 import ClickableArtists from './ClickableArtists'
 import { GLOBAL_ARTIST_AVATARS } from '../constants/curatedMixes'
+import { togglePin, isPinned, pinIdFor } from '../pinnedPlaylists'
 
 // Artist payloads carry a bio, header image and every section's items — tens of
 // KB each. Capped so browsing many artists does not accumulate for the session.
@@ -334,6 +335,32 @@ export default function ArtistProfileView({
             </div>
           )}
           
+          {/* Pin to sidebar. Artist pages are YouTube Music data, so a pin from
+              here reopens through `yt_streaming`. */}
+          {isPlaylist && (() => {
+            const pinned = isPinned(pinIdFor(item))
+            return (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  togglePin(item, 'yt')
+                }}
+                className={`absolute top-2 right-12 w-8 h-8 rounded-full border flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer z-10 ${
+                  pinned
+                    ? 'opacity-100 bg-white text-black border-white'
+                    : 'opacity-0 group-hover:opacity-100 bg-[var(--surface-1)] hover:bg-black text-white border-white/20'
+                }`}
+                title={pinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                aria-label={pinned ? `Unpin ${item.title} from sidebar` : `Pin ${item.title} to sidebar`}
+                aria-pressed={pinned}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/>
+                </svg>
+              </button>
+            )
+          })()}
+
           {/* Quick Context Menu Button (3 dots) */}
           <button
             onClick={(e) => {

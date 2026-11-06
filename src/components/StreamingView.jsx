@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { usePlayer } from '../context/usePlayer'
 import { useLibrary } from '../context/LibraryContext'
 import ContextMenu from './ContextMenu'
+import { togglePin, isPinned, pinIdFor } from '../pinnedPlaylists'
 import ClickableArtists from './ClickableArtists'
 import QuickAudioControls from './QuickAudioControls'
 import { GLOBAL_ARTIST_AVATARS } from '../constants/curatedMixes'
@@ -820,6 +821,33 @@ const getCleanArtUrl = (url, videoId, size = 'card') =>
               }
             }}
           />
+          {/* Pin to sidebar — playlists only. Cards for songs and artists get
+              nothing extra, so the hover state stays quiet where it is not useful. */}
+          {isPlaylist && (() => {
+            const pinned = isPinned(pinIdFor(song))
+            return (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  togglePin(song, isExploreActive ? 'explore' : 'yt')
+                }}
+                className={`absolute top-2 right-12 w-8 h-8 rounded-full border flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer z-10 ${
+                  pinned
+                    ? 'opacity-100 bg-white text-black border-white'
+                    : 'opacity-0 group-hover:opacity-100 bg-[var(--surface-1)] hover:bg-black text-white border-white/20'
+                }`}
+                style={{ contain: 'strict', isolation: 'isolate' }}
+                title={pinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                aria-label={pinned ? `Unpin ${song.title} from sidebar` : `Pin ${song.title} to sidebar`}
+                aria-pressed={pinned}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/>
+                </svg>
+              </button>
+            )
+          })()}
+
           {/* 3-dots Quick Menu Button */}
           <button
             onClick={(e) => {

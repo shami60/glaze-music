@@ -23,6 +23,7 @@ import { LibraryProvider, useLibrary } from './context/LibraryContext'
 import TitleBar from './components/TitleBar'
 import AudioPlayer from './components/AudioPlayer'
 import Sidebar from './components/Sidebar'
+import { usePinnedPlaylists, unpinPlaylist } from './pinnedPlaylists'
 import TrackList from './components/TrackList'
 import { getRandomAnimePfp } from './constants/animePfps'
 import StreamingView from './components/StreamingView'
@@ -223,6 +224,17 @@ function AppShell() {
   const [viewHistory, setViewHistory] = useState([])
   const [artistHistory, setArtistHistory] = useState([])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  // A pin re-opens its playlist through the same `pendingOnlineItem` handshake the
+  // YouTube Music view already uses, so the detail view needs no new entry point.
+  // Local playlists are not pinnable — they are already listed in the sidebar.
+  const pinnedPlaylists = usePinnedPlaylists()
+
+  const handleOpenPinned = (pin) => {
+    if (!pin?.item) return
+    setPendingOnlineItem(pin.item)
+    // `streaming` is Explore; `yt_streaming` keeps YouTube Music highlighted.
+    navigateTo(pin.source === 'explore' ? 'streaming' : 'yt_streaming')
+  }
   const [selectedArtistName, setSelectedArtistName] = useState(null)
   const [isLyricsOverlay, setIsLyricsOverlay] = useState(false)
   const [isMiniPlayer, setIsMiniPlayer] = useState(false)
@@ -848,6 +860,9 @@ function AppShell() {
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
             userProfile={userProfile}
             playlists={playlists}
+            pinnedPlaylists={pinnedPlaylists}
+            onOpenPinned={handleOpenPinned}
+            onUnpinPlaylist={unpinPlaylist}
             favouritesCount={totalFavouritesCount}
             downloadsCount={downloadFiles.length}
             onCreatePlaylist={(name) => createAndAddToPlaylist(null, name)}

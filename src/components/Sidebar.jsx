@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { usePlayer } from '../context/usePlayer'
 import { getRandomAnimePfp, resolvePfpUrl } from '../constants/animePfps'
 import FancyUsername, { AnimatedAvatar } from './FancyUsername'
+import { getSizedArtURL } from '../utils'
 
 export default function Sidebar({
   activeView,
@@ -13,6 +14,9 @@ export default function Sidebar({
   onToggleCollapse,
   userProfile,
   playlists = [],
+  pinnedPlaylists = [],
+  onOpenPinned,
+  onUnpinPlaylist,
   favouritesCount = 0,
   downloadsCount = 0,
   onCreatePlaylist
@@ -199,6 +203,52 @@ export default function Sidebar({
             {libraryNav.map(renderNavBtn)}
           </div>
         </div>
+
+        {/* PINNED SECTION — playlists saved from YouTube Music, Explore or an
+            artist page. Hidden entirely when empty rather than showing an empty
+            shelf, since most people will never use it. */}
+        {pinnedPlaylists.length > 0 && (
+          <div>
+            <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-white/35">
+              Pinned ({pinnedPlaylists.length})
+            </div>
+            <div className="space-y-0.5">
+              {pinnedPlaylists.map((pin) => (
+                <div key={pin.id} className="group/pin relative flex items-center">
+                  <button
+                    onClick={() => onOpenPinned?.(pin)}
+                    title={pin.subtitle ? `${pin.title} — ${pin.subtitle}` : pin.title}
+                    className="w-full flex items-center gap-2 pl-1 pr-6 py-1 rounded-lg hover:bg-white/[0.07] text-white/60 hover:text-white text-left transition-all cursor-pointer"
+                  >
+                    {pin.art ? (
+                      <img
+                        src={getSizedArtURL(pin.art, 'thumb')}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="w-6 h-6 rounded-md object-cover shrink-0 bg-white/5"
+                      />
+                    ) : (
+                      <span className="w-6 h-6 rounded-md shrink-0 bg-white/10" />
+                    )}
+                    <span className="truncate flex-1 text-[12px] font-medium">{pin.title}</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onUnpinPlaylist?.(pin.id) }}
+                    className="absolute right-1 w-5 h-5 flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/15 opacity-0 group-hover/pin:opacity-100 transition-all cursor-pointer"
+                    title="Unpin from sidebar"
+                    aria-label={`Unpin ${pin.title}`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* PLAYLISTS SECTION (Populated Live Shelf) */}
         <div className="pt-0.5">
