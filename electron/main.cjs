@@ -4741,7 +4741,7 @@ function initDiscordRPC() {
         // clients do not surface it at all.
         // The label has to do the work: nothing else on the card hints that any
         // of it is clickable. Emoji renders in RPC button labels.
-        args.activity.buttons = [{ label: '🎧 What is Glaze Music?', url: SITE_URL }]
+        args.activity.buttons = [{ label: '🎧 About Glaze Music', url: SITE_URL }]
       }
       return sendRequest(cmd, args)
     }
@@ -4808,9 +4808,7 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       details: data.title || 'Unknown Track',
       state: subtitle,
       largeImageKey: remoteArt,
-      // Doubles as the third line on the card AND the hover text on the art,
-      // which is the only hint that the image is clickable.
-      largeImageText: 'About Glaze Music',
+      largeImageText: data.album || 'Glaze Music',
       smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
       smallImageText: data.isPlaying ? 'Playing' : 'Paused',
       instance: false,
