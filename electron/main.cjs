@@ -4708,7 +4708,9 @@ app.whenReady().then(async () => {
 // which reads exactly like "Discord is not running" — it is not. To tell the two
 // apart, check for the pipe: \\.\pipe\discord-ipc-0.
 const DISCORD_CLIENT_ID = process.env.GLAZE_DISCORD_CLIENT_ID || '1568359236205936680'
-const REPO_URL = 'https://github.com/shami60/glaze-music'
+// The landing page, not the repo: GitHub's release pages ask a logged-out
+// visitor to sign in, and the site has a download button that does not.
+const SITE_URL = 'https://shami60.github.io/glaze-music/'
 
 let discordRPC = null
 let rpcConnected = false
@@ -4732,12 +4734,12 @@ function initDiscordRPC() {
         // Discord only honours it on the assets object, which exists whenever an
         // image key was sent.
         if (args.activity.assets) {
-          args.activity.assets.large_url = REPO_URL
+          args.activity.assets.large_url = SITE_URL
         }
         // A visible button is the reliable way to link out: `large_url` makes the
         // image clickable but nothing on the card hints that it is, and some
         // clients do not surface it at all.
-        args.activity.buttons = [{ label: 'View on GitHub', url: REPO_URL }]
+        args.activity.buttons = [{ label: 'Visit website', url: SITE_URL }]
       }
       return sendRequest(cmd, args)
     }
