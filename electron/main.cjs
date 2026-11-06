@@ -4719,6 +4719,16 @@ function initDiscordRPC() {
     DiscordRPC.register(CLIENT_ID)
     discordRPC = new DiscordRPC.Client({ transport: 'ipc' })
 
+    // `discord-rpc` assembles the activity from a fixed list of fields, so a
+    // `type` never reaches Discord. Without type 2 (Listening) Discord renders
+    // the timestamps as a static "2:24" instead of drawing the progress bar.
+    // Intercept the outgoing frame rather than forking the library.
+    const sendRequest = discordRPC.request.bind(discordRPC)
+    discordRPC.request = (cmd, args) => {
+      if (cmd === 'SET_ACTIVITY' && args && args.activity) args.activity.type = 2
+      return sendRequest(cmd, args)
+    }
+
     discordRPC.on('ready', () => {
       rpcConnected = true
       log.debug('Discord RPC connected')
