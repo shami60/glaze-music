@@ -84,6 +84,10 @@ function createUpdater({ ipcMain, getWindow, log = console }) {
     updater.autoDownload = false
     updater.autoInstallOnAppQuit = true
     updater.allowPrerelease = false
+    // We ship the full NSIS package, never a web installer. Leaving this false
+    // makes electron-updater carry the web-installer code path and log a warning
+    // on every download for nothing.
+    updater.disableWebInstaller = true
     updater.logger = {
       info: (m) => log.info?.(`[Update] ${m}`),
       warn: (m) => log.info?.(`[Update] ${m}`),
