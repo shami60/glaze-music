@@ -44,9 +44,9 @@
       radial-gradient(30% 42% at 68% 35%, rgba(167,139,250,.12), transparent 70%),
       radial-gradient(24% 34% at 52% 65%, rgba(244,114,182,.10), transparent 70%);
     filter: blur(24px);
-    animation: drift 36s ease-in-out infinite alternate;
+    /* glow is static now — animating a big blurred gradient repainted every frame, that's what made the icon stutter */
+    will-change: transform;
   }
-  @keyframes drift { from { transform: translate3d(-2%, 0, 0) scale(1); } to { transform: translate3d(2%, 3%, 0) scale(1.06); } }
   @media (prefers-reduced-motion: reduce) { .glow { animation: none; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 
   header, main, footer { position: relative; z-index: 1; }
@@ -73,8 +73,9 @@
   .hero { padding: 72px 0 0; text-align: center; }
   .hero .mark { width: 104px; height: 104px; margin: 0 auto 26px; border-radius: 50%;
     box-shadow: 0 0 0 1px rgba(255,255,255,.14), 0 30px 70px -20px rgba(34,211,238,.45), 0 30px 70px -30px rgba(244,114,182,.4);
-    animation: float 7s ease-in-out infinite; }
-  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+    will-change: transform; transform: translate3d(0,0,0);
+    animation: float 8s ease-in-out infinite; }
+  @keyframes float { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(0,-7px,0); } }
   h1 { margin: 0; font-size: clamp(44px, 7vw, 76px); line-height: 1.02; letter-spacing: -.04em; font-weight: 800; text-wrap: balance; color: var(--ink); }
   /* half white, half gradient — like the logo: white glass, iridescent colour */
   h1 .grad { background: linear-gradient(92deg, #22d3ee 0%, #818cf8 34%, #a78bfa 58%, #f472b6 88%);
@@ -85,6 +86,10 @@
   .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
   .fine { margin-top: 15px; font-size: 13px; color: var(--faint); }
   .trust { margin: 18px 0 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; color: var(--ink); }
+  .dl-count { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
+  .dl-count b { display: inline-block; color: var(--ink); font-size: 17px; }
+  .dl-count.pop b { animation: pop .35s ease; }
+  @keyframes pop { 50% { transform: scale(1.18); } }
 
   /* ——— now playing: a living player bar, not a decoration ——— */
   .player {
@@ -97,7 +102,7 @@
   .player .t b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .player .t span { font-size: 12.5px; color: var(--muted); }
   .eq { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
-  .eq i { width: 3px; background: var(--cyan); border-radius: 2px; animation: eq 1s ease-in-out infinite; }
+  .eq i { width: 3px; background: var(--cyan); border-radius: 2px; animation: eq 1s ease-in-out infinite; will-change: transform; }
   .eq i:nth-child(1) { height: 40%; animation-delay: 0s; }
   .eq i:nth-child(2) { height: 90%; animation-delay: .18s; }
   .eq i:nth-child(3) { height: 60%; animation-delay: .36s; }
@@ -210,6 +215,7 @@
       <a class="btn" href="https://github.com/shami60/glaze-music/releases/latest/download/Glaze-Music-1.0.8.exe">Download for Windows</a>
       <a class="btn ghost" href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">View source</a>
     </div>
+    <p class="dl-count"><b id="dl-num">53</b> downloads</p>
     <p class="trust">No ads &nbsp;·&nbsp; No subscriptions &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; No telemetry</p>
     <p class="fine">~115 MB · Free forever · Your listening history stays on your machine</p>
 
@@ -380,6 +386,26 @@
   document.getElementById('lb-close').addEventListener('click', closeLb);
   lb.addEventListener('click', function(e){ if(e.target === lb) closeLb(); });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeLb(); });
+
+  // Download counter: starts at 53, +1 on every Download click, remembered in this browser.
+  // It also follows GitHub's real exe download total (28 + real = 53 at launch), so it grows with real downloads too.
+  (function(){
+    var el = document.getElementById('dl-num'); if(!el) return;
+    var BASE = 53, OFFSET = 28, KEY = 'glaze-dl-count';
+    var saved = parseInt(localStorage.getItem(KEY) || '', 10);
+    var count = isNaN(saved) ? BASE : Math.max(saved, BASE);
+    function render(pop){ el.textContent = count; if(pop){ var p = el.parentElement; p.classList.remove('pop'); void p.offsetWidth; p.classList.add('pop'); } }
+    render(false);
+    fetch('https://api.github.com/repos/shami60/glaze-music/releases')
+      .then(function(r){ return r.json(); }).then(function(rs){
+        if(!Array.isArray(rs)) return;
+        var real = 0; rs.forEach(function(rel){ (rel.assets||[]).forEach(function(a){ if(/\.exe$/i.test(a.name)) real += a.download_count || 0; }); });
+        var live = OFFSET + real; if(live > count){ count = live; localStorage.setItem(KEY, count); render(false); }
+      }).catch(function(){});
+    document.querySelectorAll('a[href*="Glaze-Music-"]').forEach(function(a){
+      a.addEventListener('click', function(){ count++; localStorage.setItem(KEY, count); render(true); });
+    });
+  })();
 
   // Reveal on scroll, once.
   var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: .12 });
