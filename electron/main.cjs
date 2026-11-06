@@ -4808,6 +4808,9 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       details: data.title || 'Unknown Track',
       state: subtitle,
       largeImageKey: remoteArt,
+      // This line is rendered UNDERLINED and clickable, because assets.large_url
+      // is set in the request interceptor below. Discord links the image's text
+      // through the same URL — verified on screen, not assumed.
       largeImageText: 'Click Here To Get Glaze Music',
       smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
       smallImageText: data.isPlaying ? 'Playing' : 'Paused',
