@@ -1,0 +1,45 @@
+name: CI
+
+# Runs on every push to main and every pull request. The point is to answer one
+# question cheaply: did this change break the build, the lint baseline, or the
+# logic that has assertions? It does NOT try to run the app — that needs a
+# display and is better done by a human.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # `eslint .` fails only on errors, not warnings. The baseline is
+      # 0 errors / 77 warnings — a new warning means dead code or a stale dep
+      # array, which is worth looking at but should not block a fix.
+      - name: Lint
+        run: npm run lint
+
+      # Both are plain node:assert scripts with no browser or Electron
+      # dependency, so they run here in well under a second.
+      - name: Logic checks
+        run: |
+          npm run test:backup
+          npm run test:art
+
+      - name: Build renderer
+        run: npm run build

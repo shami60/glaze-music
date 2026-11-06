@@ -1,0 +1,74 @@
+name: Release
+
+# Triggered by pushing a tag like v1.0.5. Builds the NSIS installer on a clean
+# Windows runner, uploads the three files electron-updater needs, then proves the
+# published feed actually serves them.
+#
+# Building here rather than locally is deliberate: a runner starts from a fresh
+# VM, so there are no locked build folders, no stale `dist-*` directories, and no
+# chance of uploading a file from an older build.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  # Required to create the release and upload assets with GITHUB_TOKEN.
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # The tag is the source of truth for what gets published, but package.json
+      # decides the version baked into the app and into latest.yml. If they
+      # disagree, the release would advertise one version and install another —
+      # fail here instead of shipping it.
+      - name: Check tag matches package.json
+        shell: bash
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "v$PKG_VERSION" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "publishing $PKG_VERSION"
+
+      # Same three steps used locally, so a CI release and a local one are the
+      # same artefact. `--publish never` keeps electron-builder from uploading
+      # before the release notes are stamped into latest.yml.
+      - name: Build, package, stamp notes
+        run: npm run release
+
+      - name: Publish to GitHub Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "$TAG" --notes-file RELEASE-NOTES.md --verify-tag
+          gh release upload "$TAG" \
+            "dist-electron/Glaze-Music-$VERSION.exe" \
+            "dist-electron/Glaze-Music-$VERSION.exe.blockmap" \
+            "dist-electron/latest.yml" \
+            --clobber
+
+      # Catches the failures that are invisible in the GitHub UI: a draft or
+      # pre-release (the updater ignores both), an asset name that does not match
+      # latest.yml, a stale hash, or a host without Range support.
+      - name: Verify the published feed
+        env:
+          RELEASE_DIR: dist-electron
+        run: node scripts/verify-hosted-release.mjs

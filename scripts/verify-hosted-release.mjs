@@ -15,7 +15,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 
 const ROOT = process.cwd()
-const RELEASE_DIR = path.resolve(ROOT, process.env.RELEASE_DIR || 'dist-gh')
+const RELEASE_DIR = path.resolve(ROOT, process.env.RELEASE_DIR || 'dist-electron')
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const { version } = pkg
