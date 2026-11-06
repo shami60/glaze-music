@@ -19,6 +19,8 @@ Built with Electron and React. Windows installer, no account required for local 
 
 </div>
 
+![Now playing in Glaze Music — Kill Bill by SZA, live on Discord too](docs/screenshots/now-playing.gif)
+
 ![Glaze Music — built from what you actually listen to](docs/screenshots/recommendations.jpg)
 
 ---
