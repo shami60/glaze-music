@@ -1081,7 +1081,9 @@ export function PlayerProvider({ children }) {
     if (currentTrack && isPlaying) {
       window.electronAPI.updateDiscordPresence({ title: currentTrack.title || 'Unknown', artist: currentTrack.artist || '', album: currentTrack.album || '', art: currentTrack.albumArt || '', isPlaying: true, duration: duration || 0, currentTime: currentTime || 0 })
     } else if (currentTrack && !isPlaying) {
-      window.electronAPI.updateDiscordPresence({ title: currentTrack.title || 'Unknown', artist: currentTrack.artist || '', album: currentTrack.album || '', isPlaying: false, duration: 0, currentTime: 0 })
+      // Keep the art and the real position: sending duration 0 / currentTime 0
+      // here is what made a paused track show a "?" cover and 0:00.
+      window.electronAPI.updateDiscordPresence({ title: currentTrack.title || 'Unknown', artist: currentTrack.artist || '', album: currentTrack.album || '', art: currentTrack.albumArt || '', isPlaying: false, duration: duration || 0, currentTime: currentTime || 0 })
     } else {
       window.electronAPI.clearDiscordPresence?.()
     }

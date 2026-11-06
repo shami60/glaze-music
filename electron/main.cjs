@@ -4775,9 +4775,21 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
     // broken placeholder, so those fall back to the uploaded app icon.
     const remoteArt = typeof data.art === 'string' && /^https?:\/\//i.test(data.art) ? data.art : 'glaze_icon'
 
+    // Discord derives a progress bar from timestamps and keeps advancing it, so a
+    // paused track cannot keep a frozen bar — it would lie. The position goes in
+    // the subtitle instead, which is static and exact.
+    const mmss = (secs) => {
+      const s = Math.max(0, Math.floor(secs || 0))
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+    }
+    const paused = !data.isPlaying && (data.currentTime || 0) > 0
+    const subtitle = data.artist
+      ? (paused ? `by ${data.artist} · paused at ${mmss(data.currentTime)}` : `by ${data.artist}`)
+      : 'Listening'
+
     const activity = {
       details: data.title || 'Unknown Track',
-      state: data.artist ? `by ${data.artist}` : 'Listening',
+      state: subtitle,
       largeImageKey: remoteArt,
       largeImageText: data.album || 'Glaze Music',
       smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
@@ -4790,6 +4802,8 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
     }
     log.debug('[Discord] presence:', JSON.stringify({
       details: activity.details,
+      state: activity.state,
+      small: activity.smallImageKey,
       large: activity.largeImageKey,
       start: activity.startTimestamp,
       end: activity.endTimestamp,
