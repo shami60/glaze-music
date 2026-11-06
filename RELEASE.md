@@ -9,19 +9,17 @@ Everything needed to ship a public Windows build. Written 28 September 2026 agai
 
 ---
 
-## 0. Do this before anything else: there is no version control
+## 0. Version control, CI and updates — already in place
 
-**This project is not a git repository.** No history, no remote, no way to roll back.
+Done on 2026-11-06, so this section is no longer a to-do list:
 
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-```
+- git repository with a public remote at **`shami60/glaze-music`**
+- GitHub Actions CI on every push (lint, logic checks, build)
+- tag-driven releases — the tag is the only manual step
+- working auto-update from GitHub Releases
 
-Then push to a **private** remote immediately. 19,500 lines with no history is the single largest
-risk to this project — larger than any bug in `AUDIT-REPORT-V2.md`. It also blocks auto-update
-(§4) and CI (Phase C of the roadmap).
+**For anything update-related, read `UPDATES.md` instead of this guide.** It covers the pipeline, the
+rules that must not be broken, and the gotchas that cost us real time.
 
 ---
 
@@ -152,28 +150,18 @@ builds cleanly; only this check proves otherwise.
 
 ---
 
-## 4. Auto-update — deferred, and what it will need
+## 4. Auto-update — implemented, see `UPDATES.md`
 
-Deferred by choice. Two viable routes when you want it:
+Live since 2026-11-06: `electron-updater` against GitHub Releases, triggered by a version tag, built and
+uploaded by GitHub Actions. `electron/updater.cjs` holds the wiring; `UPDATES.md` holds the rules.
 
-**(a) `electron-updater`** — the standard route. Requires:
-- `npm install electron-updater` (see the `overrides` warning in §2)
-- a `publish` block naming a provider, e.g.
-  `"publish": [{ "provider": "github", "owner": "...", "repo": "..." }]`
-- the provider generating a `latest.yml` alongside the installer. **The current build produces a
-  `.blockmap` but no `latest.yml`** — that is exactly what is missing today.
-- wiring `autoUpdater.checkForUpdatesAndNotify()` in `main.cjs`, guarded by `app.isPackaged`
+Two corrections to what this section used to say:
 
-**(b) A static manifest** — no dependency. Host a small JSON (`{ version, url, notes }`) anywhere,
-fetch it on launch, compare against `app.getVersion()`, and open the installer URL. Roughly 100
-lines, and it keeps this repo's dependency tree untouched.
-
-**Two constraints either way:**
-
-1. Auto-update **only works in a packaged build** — `app.isPackaged` is false in dev.
-2. `win.verifyUpdateCodeSignature` **defaults to `true`** and validates each update against
-   `publisherName`. So **signing and auto-update are linked**: get signing working first, or
-   updates will be rejected.
+1. **`latest.yml` is produced.** It always was — by full NSIS builds. `--dir` builds skip it, which is
+   what made it look missing.
+2. **Signing is not required for updates.** This guide claimed `win.verifyUpdateCodeSignature` would
+   reject unsigned updates; an unsigned 1.0.4 updated itself to 1.0.5 successfully. Signing matters for
+   SmartScreen warnings, not for the updater.
 
 ---
 
@@ -202,15 +190,22 @@ the minidumps. Nothing is uploaded anywhere; there is no account and no endpoint
 - [ ] Uninstaller removes the app and leaves user data intact
 - [ ] Release notes list what changed
 
-## 7. Known open items at 1.0.3
+## 7. Known open items — state at 1.0.5
 
-Carried from `AUDIT-REPORT-V2.md`. None of these block a private or beta release; the first two
-should be resolved before a wide public one.
+Re-measured on 2026-11-06. Several items from the 1.0.3 list are done; do not re-open them.
 
-- `library:scan` accepts a renderer-supplied folder and self-authorises it (see the report's Phase A
-  addendum — the fix needs the backup-import flow changed too)
-- **Zero `aria-*` / `role=` attributes** — icon-only buttons are unlabelled for screen readers
-- **No test runner and no CI.** `scripts/verify-phase-a.cjs` and `scripts/verify-crashlog.cjs` are
-  the only harnesses; both are plain scripts, not wired into anything
-- 85 ESLint warnings (mostly `react-hooks/exhaustive-deps` and `no-unused-vars`)
-- Phase B (perf: context memoisation, queue bound) and Phase D (features) not started
+**Resolved**
+- `library:scan` no longer self-authorises a renderer-supplied folder. `addAllowedRoot` / `addAllowedFile`
+  are called only from the four native entry points, and every path-taking handler asserts first.
+- CI exists (`.github/workflows/ci.yml`): lint, the two `node:assert` scripts, and a build on every push.
+
+**Still open**
+- **Accessibility is partial, not absent.** 20 `aria-*`, 8 `role=`, 70 of 72 images have `alt`. What is
+  missing is narrower than the old note claimed: ~10 icon-only buttons with no label, no focus trap in
+  modals, no `aria-live` for track changes, no roving tabindex in long lists.
+- **No test runner.** `scripts/test-backup.mjs` and `scripts/test-art-sizes.mjs` are real assertions and
+  now run in CI, but there is no framework (Vitest was the plan) and nothing covers lyrics timing, LRC
+  parsing or path guards.
+- **77 ESLint warnings**, 0 errors. A new warning means dead code or a stale dep array.
+- **Installer is unsigned** — SmartScreen warns on first run. Updates work regardless (see `UPDATES.md`).
+- Phase B (perf: context memoisation, queue bound) and Phase D (features) not started.
