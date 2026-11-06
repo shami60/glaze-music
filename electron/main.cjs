@@ -4808,7 +4808,7 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       details: data.title || 'Unknown Track',
       state: subtitle,
       largeImageKey: remoteArt,
-      largeImageText: 'About Glaze Music',
+      largeImageText: 'Click Here To Get Glaze Music',
       smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
       smallImageText: data.isPlaying ? 'Playing' : 'Paused',
       instance: false,
