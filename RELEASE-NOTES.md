@@ -1,13 +1,15 @@
-# What's new in 1.0.7
+# What's new in 1.0.8
 
-- **Discord now shows what you are playing** — track, artist, cover art and a live progress
-  bar, with a link to Glaze Music under the artwork.
-- Pausing shows exactly where you stopped, and seeking updates Discord straight away.
+- **Discord reconnects on its own.** Open the player before Discord, or restart
+  Discord mid-song, and your presence comes back within a few seconds.
+- The album cover, play/pause icon and the "About Glaze Music" link now all
+  appear on the card.
 
 ## Fixes
 
-- The Discord presence never connected at all in 1.0.6.
-- The cover art was missing and the timer sat at 0:00.
+- If Discord started after the player, the presence never came back until the
+  app was restarted.
+- The card showed an empty image box instead of the app icon.
 
 ---
 
