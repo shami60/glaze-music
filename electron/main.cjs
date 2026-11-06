@@ -4725,7 +4725,15 @@ function initDiscordRPC() {
     // Intercept the outgoing frame rather than forking the library.
     const sendRequest = discordRPC.request.bind(discordRPC)
     discordRPC.request = (cmd, args) => {
-      if (cmd === 'SET_ACTIVITY' && args && args.activity) args.activity.type = 2
+      if (cmd === 'SET_ACTIVITY' && args && args.activity) {
+        args.activity.type = 2 // Listening — the only type Discord draws a bar for
+        // Makes the cover art clickable. `discord-rpc` has no field for it, and
+        // Discord only honours it on the assets object, which exists whenever an
+        // image key was sent.
+        if (args.activity.assets) {
+          args.activity.assets.large_url = 'https://github.com/shami60/glaze-music'
+        }
+      }
       return sendRequest(cmd, args)
     }
 
