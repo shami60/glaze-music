@@ -4739,7 +4739,9 @@ function initDiscordRPC() {
         // A visible button is the reliable way to link out: `large_url` makes the
         // image clickable but nothing on the card hints that it is, and some
         // clients do not surface it at all.
-        args.activity.buttons = [{ label: 'Visit website', url: SITE_URL }]
+        // The label has to do the work: nothing else on the card hints that any
+        // of it is clickable. Emoji renders in RPC button labels.
+        args.activity.buttons = [{ label: '🎧 Open Glaze Music', url: SITE_URL }]
       }
       return sendRequest(cmd, args)
     }
