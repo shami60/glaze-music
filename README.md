@@ -86,6 +86,25 @@ page, without leaving playback.
 
 <img src="docs/screenshots/artist.jpg" alt="Artist page" width="100%">
 
+### A mini player for when the full window is too much
+
+<img src="docs/screenshots/mini-player.jpg" alt="Glaze Music mini player window" width="270" align="right">
+
+Shrink the whole app down to a narrow strip and keep it beside whatever else you are doing. It is the
+same player, not a cut-down version:
+
+- **Full transport** — shuffle, skip, play/pause, plus elapsed and remaining time
+- **LYRICS** opens the full-screen lyrics and keeps your place
+- **Volume and favourite** without going back to the main window
+- **Follows you across virtual desktops** rather than staying on one
+- **Built for the width** — the layout is a compact design, not the full app squeezed
+
+Leave the mode and the main window comes back at the size you left it.
+
+<br clear="right">
+
+---
+
 ### The rest of it
 
 - **Offline downloads** — save tracks and albums, cover art included, into your library
