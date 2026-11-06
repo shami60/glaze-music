@@ -4808,7 +4808,9 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       details: data.title || 'Unknown Track',
       state: subtitle,
       largeImageKey: remoteArt,
-      largeImageText: data.album || 'Glaze Music',
+      // Doubles as the third line on the card AND the hover text on the art,
+      // which is the only hint that the image is clickable.
+      largeImageText: 'Take me to Glaze Music',
       smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
       smallImageText: data.isPlaying ? 'Playing' : 'Paused',
       instance: false,
