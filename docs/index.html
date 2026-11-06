@@ -13,11 +13,11 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   :root {
-    --bg: #050508;
-    --bg2: #0b0b12;
+    --bg: #0c0c13;
+    --bg2: #14141e;
     --ink: #f5f5f7;
-    --muted: #b9b9c6;
-    --faint: #7d7d8c;
+    --muted: #c4c4d2;
+    --faint: #8f8fa0;
     --cyan: #22d3ee;
     --violet: #a78bfa;
     --magenta: #f472b6;
@@ -30,7 +30,7 @@
     font: 17px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased; overflow-x: hidden;
   }
-  ::selection { background: var(--cyan); color: #050508; }
+  ::selection { background: var(--cyan); color: #0c0c13; }
   a { color: inherit; text-decoration: none; }
   a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 6px; }
   img { display: block; max-width: 100%; height: auto; }
@@ -38,19 +38,19 @@
 
   /* ——— the one motion moment: a slow iridescent glow, like the icon ——— */
   .glow {
-    position: fixed; inset: -20% -10% auto; height: 720px; z-index: 0; pointer-events: none;
+    position: fixed; inset: -12% -10% auto; height: 520px; z-index: 0; pointer-events: none;
     background:
-      radial-gradient(42% 55% at 30% 40%, rgba(34,211,238,.28), transparent 70%),
-      radial-gradient(38% 50% at 68% 35%, rgba(167,139,250,.26), transparent 70%),
-      radial-gradient(30% 42% at 52% 65%, rgba(244,114,182,.20), transparent 70%);
-    filter: blur(10px);
+      radial-gradient(34% 46% at 30% 40%, rgba(34,211,238,.14), transparent 70%),
+      radial-gradient(30% 42% at 68% 35%, rgba(167,139,250,.12), transparent 70%),
+      radial-gradient(24% 34% at 52% 65%, rgba(244,114,182,.10), transparent 70%);
+    filter: blur(24px);
     animation: drift 36s ease-in-out infinite alternate;
   }
   @keyframes drift { from { transform: translate3d(-2%, 0, 0) scale(1); } to { transform: translate3d(2%, 3%, 0) scale(1.06); } }
   @media (prefers-reduced-motion: reduce) { .glow { animation: none; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 
   header, main, footer { position: relative; z-index: 1; }
-  header { position: sticky; top: 0; z-index: 20; background: rgba(5,5,8,.78); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+  header { position: sticky; top: 0; z-index: 20; background: rgba(12,12,19,.82); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
   nav { display: flex; align-items: center; gap: 26px; height: 68px; }
   .brand { display: flex; align-items: center; gap: 11px; font-weight: 700; letter-spacing: -.02em; font-size: 17px; }
   .brand img { width: 34px; height: 34px; border-radius: 50%; }
@@ -60,7 +60,7 @@
 
   .btn {
     display: inline-flex; align-items: center; gap: 9px; padding: 13px 24px;
-    border-radius: 12px; font-size: 15px; font-weight: 700; color: #050508;
+    border-radius: 12px; font-size: 15px; font-weight: 700; color: #0c0c13;
     background: #fff; border: 1px solid #fff;
     transition: transform .18s ease, box-shadow .18s ease;
   }
@@ -99,9 +99,12 @@
   .eq i:nth-child(4) { height: 100%; animation-delay: .1s; }
   @keyframes eq { 0%,100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
   .player.paused .eq i { animation-play-state: paused; transform: scaleY(.3); }
-  .playbtn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 0; background: #fff; color: #050508; font-size: 14px; cursor: pointer; }
+  .playbtn { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 0; background: #fff; color: #0c0c13; font-size: 14px; cursor: pointer; }
   .progress { height: 3px; background: rgba(255,255,255,.14); border-radius: 3px; margin-top: 6px; overflow: hidden; }
   .progress i { display: block; height: 100%; width: 38%; background: var(--cyan); border-radius: 3px; }
+
+  .discord-note { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 14px auto 0; font-size: 13.5px; color: var(--muted); }
+  .discord-note svg { color: #5865f2; flex: none; }
 
   /* ——— hero shot: native 16:9, never stretched ——— */
   .shot { margin: 58px auto 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line);
@@ -214,6 +217,7 @@
       <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <button class="playbtn" id="playbtn" aria-label="Pause the preview">❚❚</button>
     </div>
+    <p class="discord-note"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="currentColor"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3c-.2.4-.5.9-.6 1.3a18 18 0 0 0-5.6 0C9 3.9 8.7 3.4 8.5 3a19.7 19.7 0 0 0-4.9 1.5A20.4 20.4 0 0 0 .2 18.1a19.9 19.9 0 0 0 6 3c.5-.7.9-1.4 1.3-2.1-.7-.3-1.4-.6-2-1l.5-.4a14.2 14.2 0 0 0 12 0l.5.4c-.6.4-1.3.7-2 1 .4.7.8 1.4 1.3 2.1a19.8 19.8 0 0 0 6-3A20.3 20.3 0 0 0 20.3 4.4ZM8 15.3c-1.2 0-2.1-1.1-2.1-2.4S6.8 10.5 8 10.5s2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4Zm8 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4Z"/></svg> Live on Discord too — your friends can see you're listening to this, right now.</p>
 
     <div class="shot">
       <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
