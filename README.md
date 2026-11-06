@@ -10,6 +10,8 @@ A desktop music player for your music — your files, your playlists, your libra
 
 Built with Electron and React. Windows installer, no account required for local playback.
 
+**Free forever — no ads, no subscriptions, no account needed, no telemetry.**
+
 [![Latest release](https://img.shields.io/github/v/release/shami60/glaze-music?label=download&color=8b5cf6)](https://github.com/shami60/glaze-music/releases/latest)
 [![CI](https://github.com/shami60/glaze-music/actions/workflows/ci.yml/badge.svg)](https://github.com/shami60/glaze-music/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6)](#install)
