@@ -2,7 +2,7 @@
 
 # Glaze Music
 
-**A desktop music player that treats your own files and YouTube Music as one library.**
+**Glaze Music — a desktop music player for your music. Your files, your playlists, your library, in one place.**
 
 Built with Electron and React. Windows installer, no account required for local playback.
 
@@ -15,7 +15,7 @@ Built with Electron and React. Windows installer, no account required for local 
 
 </div>
 
-![Glaze Music home screen](docs/screenshots/home.jpg)
+![Glaze Music — built from what you actually listen to](docs/screenshots/recommendations.jpg)
 
 <img src="docs/screenshots/lyrics.jpg" alt="Full-screen player with the active lyric line highlighted" width="100%">
 
@@ -27,7 +27,8 @@ Built with Electron and React. Windows installer, no account required for local 
 
 Most players make you choose. Local files or streaming. Your library or the cloud. Glaze Music keeps
 both in the same place: point it at a folder of music and it indexes everything into SQLite, then sign
-in to YouTube Music and its playlists, mixes and artist pages appear in the same sidebar.
+in to YouTube Music and your library comes with you — your liked songs, your playlists, your mixes and
+artist pages, right next to your own files.
 
 It is a real desktop app, not a wrapper around a website. Playback, the library index, downloads and
 lyrics all run locally. Your listening history stays on your machine.
@@ -44,8 +45,9 @@ lyrics all run locally. Your listening history stays on your machine.
 Point it at one or more folders and it scans them, reads ID3 tags and builds a searchable index.
 Albums, artists and playlists are derived from the files themselves — no metadata service, no upload.
 
-Sign in and YouTube Music's own shelves appear too: **Mixed for you**, **New releases**,
-**Artists you follow**. Both live in the same sidebar, and search covers both.
+Sign in to YouTube Music and your library comes with you: your **liked songs** and your
+**playlists**, plus **Mixed for you**, **New releases** and **Artists you follow**. Both live in the
+same sidebar, and search covers both.
 
 <img src="docs/screenshots/youtube-music.jpg" alt="YouTube Music shelves inside Glaze Music" width="100%">
 
@@ -105,10 +107,13 @@ Leave the mode and the main window comes back at the size you left it.
 
 ---
 
-### Your Discord status shows what you are playing
+### Your friends can see what you're listening to
 
-Glaze Music talks to Discord over local IPC — no bot, no account linking, nothing sent to a server. It
-appears on your profile the moment a track starts:
+Glaze Music shows up on Discord — so when you're listening, your friends can see it too, right in
+Discord. It talks to Discord over local IPC — no bot, no account linking, nothing sent to a server.
+It appears on your profile the moment a track starts:
+
+<img src="docs/screenshots/discord.png" alt="Discord showing Listening to Glaze Music — Blinding Lights by The Weeknd" width="386">
 
 - **Track and artist** as the presence title and subtitle
 - **A live progress bar** — elapsed and remaining, counting in real time
