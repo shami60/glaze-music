@@ -1079,13 +1079,17 @@ export function PlayerProvider({ children }) {
 
     if (!window.electronAPI?.updateDiscordPresence) return
     if (currentTrack && isPlaying) {
-      window.electronAPI.updateDiscordPresence({ title: currentTrack.title || 'Unknown', artist: currentTrack.artist || '', album: currentTrack.album || '', isPlaying: true, duration: duration || 0, currentTime: currentTime || 0 })
+      window.electronAPI.updateDiscordPresence({ title: currentTrack.title || 'Unknown', artist: currentTrack.artist || '', album: currentTrack.album || '', art: currentTrack.albumArt || '', isPlaying: true, duration: duration || 0, currentTime: currentTime || 0 })
     } else if (currentTrack && !isPlaying) {
       window.electronAPI.updateDiscordPresence({ title: currentTrack.title || 'Unknown', artist: currentTrack.artist || '', album: currentTrack.album || '', isPlaying: false, duration: 0, currentTime: 0 })
     } else {
       window.electronAPI.clearDiscordPresence?.()
     }
-  }, [currentTrack?.src, isPlaying])
+    // `duration` is a dependency on purpose. It is 0 at the instant a track starts
+    // (metadata is still loading), so the presence went out without timestamps and
+    // Discord showed 0:00 for the whole song — nothing ever re-pushed once the
+    // duration arrived. `currentTime` deliberately stays out: it ticks ~4x/sec.
+  }, [currentTrack?.src, isPlaying, duration])
 
   // ── OS Media Controls (System Media Transport Controls / SMTC via MediaSession) ──
   useEffect(() => {

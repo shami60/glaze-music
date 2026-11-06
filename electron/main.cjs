@@ -4760,10 +4760,15 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
   // rebuilt three nativeImages twice, and only ever worked when Discord was up.
   if (!discordRPC || !rpcConnected) return
   try {
+    // Discord proxies the image itself, so it must be a real http(s) URL. Local
+    // covers (art://, media://, file://) cannot be fetched and would render as a
+    // broken placeholder, so those fall back to the uploaded app icon.
+    const remoteArt = typeof data.art === 'string' && /^https?:\/\//i.test(data.art) ? data.art : 'glaze_icon'
+
     const activity = {
       details: data.title || 'Unknown Track',
       state: data.artist ? `by ${data.artist}` : 'Listening',
-      largeImageKey: 'glaze_icon',
+      largeImageKey: remoteArt,
       largeImageText: data.album || 'Glaze Music',
       smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
       smallImageText: data.isPlaying ? 'Playing' : 'Paused',
@@ -4773,6 +4778,12 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       activity.startTimestamp = Math.floor(Date.now() / 1000) - Math.floor(data.currentTime || 0)
       activity.endTimestamp = Math.floor(Date.now() / 1000) + Math.floor(data.duration - (data.currentTime || 0))
     }
+    log.debug('[Discord] presence:', JSON.stringify({
+      details: activity.details,
+      large: activity.largeImageKey,
+      start: activity.startTimestamp,
+      end: activity.endTimestamp,
+    }))
     // setActivity returns a promise too; leaving it unhandled is the same class
     // of unhandled rejection as the shutdown crash.
     discordRPC.setActivity(activity).catch(err => {
