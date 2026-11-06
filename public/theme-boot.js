@@ -14,8 +14,8 @@ try {
   if (savedAppearance && VALID.indexOf(savedAppearance) !== -1) {
     document.documentElement.dataset.theme = savedAppearance
   } else if (savedAppearance) {
-    localStorage.setItem('glaze:appearance', 'liquid-glass')
-    document.documentElement.dataset.theme = 'liquid-glass'
+    localStorage.setItem('glaze:appearance', 'daylight')
+    document.documentElement.dataset.theme = 'daylight'
   }
 } catch (e) {
   /* localStorage can be unavailable; the app falls back to the default theme */

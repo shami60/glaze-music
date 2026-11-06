@@ -14,9 +14,9 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
       </svg>
     ),
-    title: '100M+ Instant Streaming',
-    subtitle: 'Lightning-fast cloud search, albums, charts, artist profiles, and infinite algorithmic radio.',
-    badge: 'Sub-Second Audio',
+    title: 'Stream from YouTube Music',
+    subtitle: 'Search, charts, artist pages and endless radio, streamed straight from YouTube Music.',
+    badge: 'Online',
     color: '#ef4444'
   },
   {
@@ -25,9 +25,9 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.757 3.63 8.25 4.51 8.25H6.75z" />
       </svg>
     ),
-    title: '3D Spatial & 8D Audio',
+    title: '8D spatial audio',
     subtitle: 'Full 360-degree rotating headphone immersion with custom pan velocity and 10-band EQ.',
-    badge: 'Pro Audio FX',
+    badge: 'Audio FX',
     color: '#a855f7'
   },
   {
@@ -36,8 +36,8 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
       </svg>
     ),
-    title: '1-Click Offline Downloader',
-    subtitle: 'Download songs and albums with high-res cover art directly to your local library.',
+    title: 'Download for offline',
+    subtitle: 'Save tracks and albums, cover art included, into your own library.',
     badge: 'Offline Mode',
     color: '#3b82f6'
   },
@@ -47,8 +47,8 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
       </svg>
     ),
-    title: 'Fullscreen Vinyl & Synced Lyrics',
-    subtitle: 'Ambient real-time background blur, rotating vinyl player, and synchronized karaoke lyrics.',
+    title: 'Synced karaoke lyrics',
+    subtitle: 'Word-by-word highlighting that follows the vocal, with a full-screen player.',
     badge: 'Visualizer',
     color: '#ec4899'
   },
@@ -58,9 +58,9 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
       </svg>
     ),
-    title: 'Lossless Local Library',
-    subtitle: 'Lightning-fast multi-folder scanner, automatic ID3 tag metadata parsing, and SQLite caching.',
-    badge: 'Smart Indexing',
+    title: 'Your own music, indexed',
+    subtitle: 'Multi-folder scan, automatic ID3 tags, and a fast local index.',
+    badge: 'Local',
     color: '#10b981'
   },
   {
@@ -69,9 +69,9 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.804-2.803a3.75 3.75 0 015.304 0l2.196 2.196a3.75 3.75 0 010 5.304l-2.803 2.804M10.5 8.197l-2.803 2.804" />
       </svg>
     ),
-    title: 'Glassmorphic Audio Themes',
-    subtitle: 'Curated dark themes, custom hex colors, and dynamic album art responsive backgrounds.',
-    badge: 'Dynamic UI',
+    title: 'Light and dark themes',
+    subtitle: 'Daylight, Sandstone and Liquid Glass, plus your own accent colour.',
+    badge: 'Themes',
     color: '#f59e0b'
   }
 ]
@@ -381,9 +381,9 @@ export default function SetupWizard({ onComplete, onClose, isReplay = false }) {
             <div className="flex-1 flex flex-col items-center justify-between gap-4 overflow-y-auto custom-scrollbar">
               <div className="text-center space-y-1">
                 <span className="text-[11px] font-bold uppercase tracking-widest text-white/40">Step 2 of 4</span>
-                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Supercharged Features</h2>
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">What you are getting</h2>
                 <p className="text-xs sm:text-sm text-white/50 max-w-md">
-                  Everything you need for audiophile streaming, lossless local playback, and immersive audio effects.
+                  A local library, YouTube Music, synced lyrics and downloads. Here is what is inside.
                 </p>
               </div>
 
@@ -530,7 +530,7 @@ export default function SetupWizard({ onComplete, onClose, isReplay = false }) {
                   Welcome, {userName.trim() || 'User'}!
                 </h2>
                 <p className="text-xs sm:text-sm text-white/50">
-                  Your Glaze Music streaming engine is primed with 100M+ songs, 3D Spatial Audio, and dynamic themes.
+                  You are set. Your library, YouTube Music and your lyrics are ready to go.
                 </p>
               </div>
 

@@ -180,7 +180,7 @@ const streamUrlCache = new StreamUrlCache()
 
 export function PlayerProvider({ children }) {
   // ── Load persisted state ────────────────────────────────────────────────
-  const defaultState = { queue: [], currentIndex: -1, currentTime: 0, volume: 0.8, shuffle: false, repeat: 'none', theme: 'dynamic', eqGains: [0,0,0,0,0,0,0,0,0,0], is8D: false, panSpeed: 2500, reverbPreset: 'room', isAutoplay: true, playbackSpeed: 1.0, crossfade: 0, appearance: 'liquid-glass', customAccent: '#8b5cf6', customMode: 'dark', ambience: true, motion: true, streamQuality: 'high' }
+  const defaultState = { queue: [], currentIndex: -1, currentTime: 0, volume: 0.8, shuffle: false, repeat: 'none', theme: 'dynamic', eqGains: [0,0,0,0,0,0,0,0,0,0], is8D: false, panSpeed: 2500, reverbPreset: 'room', isAutoplay: true, playbackSpeed: 1.0, crossfade: 0, appearance: 'daylight', customAccent: '#8b5cf6', customMode: 'dark', ambience: true, motion: true, streamQuality: 'high' }
   
   const [isStateLoaded, setIsStateLoaded] = useState(false)
   

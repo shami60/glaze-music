@@ -42,7 +42,9 @@ export const APPEARANCE_THEMES = [
   },
 ]
 
-export const DEFAULT_APPEARANCE = 'liquid-glass'
+// Daylight by default: a dark first launch reads as 'another dark app', and the
+// light palette shows the cover art and the layout far better on first run.
+export const DEFAULT_APPEARANCE = 'daylight'
 
 export function getAppearance(id) {
   return APPEARANCE_THEMES.find((t) => t.id === id) || APPEARANCE_THEMES[0]
