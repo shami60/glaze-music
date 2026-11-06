@@ -4712,6 +4712,15 @@ const DISCORD_CLIENT_ID = process.env.GLAZE_DISCORD_CLIENT_ID || '15683592362059
 // visitor to sign in, and the site has a download button that does not.
 const SITE_URL = 'https://shami60.github.io/glaze-music/'
 
+// These must match the asset keys uploaded in the Discord portal EXACTLY. A
+// mismatch produces no error anywhere — the image is simply blank — which is how
+// an asset uploaded as "icon" instead of "glaze_icon" goes unnoticed.
+const DISCORD_ASSETS = {
+  app: 'glaze_icon',
+  play: 'play_icon',
+  pause: 'pause_icon',
+}
+
 let discordRPC = null
 let rpcConnected = false
 
@@ -4752,7 +4761,7 @@ function initDiscordRPC() {
       discordRPC.setActivity({
         details: 'Idle',
         state: 'Glaze Music',
-        largeImageKey: 'glaze_icon',
+        largeImageKey: DISCORD_ASSETS.app,
         largeImageText: 'Glaze Music',
         instance: false,
       }).catch(() => {})
@@ -4790,7 +4799,7 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
     // Discord proxies the image itself, so it must be a real http(s) URL. Local
     // covers (art://, media://, file://) cannot be fetched and would render as a
     // broken placeholder, so those fall back to the uploaded app icon.
-    const remoteArt = typeof data.art === 'string' && /^https?:\/\//i.test(data.art) ? data.art : 'glaze_icon'
+    const remoteArt = typeof data.art === 'string' && /^https?:\/\//i.test(data.art) ? data.art : DISCORD_ASSETS.app
 
     // Discord derives a progress bar from timestamps and keeps advancing it, so a
     // paused track cannot keep a frozen bar — it would lie. The position goes in
@@ -4812,7 +4821,7 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       // is set in the request interceptor below. Discord links the image's text
       // through the same URL — verified on screen, not assumed.
       largeImageText: 'Click Here To Get Glaze Music',
-      smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
+      smallImageKey: data.isPlaying ? DISCORD_ASSETS.play : DISCORD_ASSETS.pause,
       smallImageText: data.isPlaying ? 'Playing' : 'Paused',
       instance: false,
     }
