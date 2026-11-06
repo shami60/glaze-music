@@ -4723,8 +4723,23 @@ const DISCORD_ASSETS = {
 
 let discordRPC = null
 let rpcConnected = false
+let rpcRetryTimer = null
+
+// Discord is often started after the player, and restarting it drops the IPC
+// socket. Without a retry the presence never comes back for the rest of the
+// session, which looks identical to the feature being broken.
+function scheduleDiscordRetry() {
+  if (rpcRetryTimer) return
+  rpcRetryTimer = setTimeout(() => {
+    rpcRetryTimer = null
+    initDiscordRPC()
+  }, 15000)
+  // Never hold the process open on shutdown.
+  if (typeof rpcRetryTimer.unref === 'function') rpcRetryTimer.unref()
+}
 
 function initDiscordRPC() {
+  if (discordRPC && rpcConnected) return
   try {
     const DiscordRPC = require('discord-rpc')
     const CLIENT_ID = DISCORD_CLIENT_ID
@@ -4757,6 +4772,7 @@ function initDiscordRPC() {
 
     discordRPC.on('ready', () => {
       rpcConnected = true
+      if (rpcRetryTimer) { clearTimeout(rpcRetryTimer); rpcRetryTimer = null }
       log.debug('Discord RPC connected')
       discordRPC.setActivity({
         details: 'Idle',
@@ -4773,6 +4789,7 @@ function initDiscordRPC() {
       // null, and keeping the client alive means a later destroy() calls
       // socket.write() on null — that was the unhandled rejection on quit.
       discordRPC = null
+      scheduleDiscordRetry()
     })
 
     discordRPC.login({ clientId: CLIENT_ID }).catch(err => {
@@ -4783,10 +4800,12 @@ function initDiscordRPC() {
       // Same reasoning: a client that never logged in has a null socket, so it
       // must not survive to be destroyed during shutdown.
       discordRPC = null
+      scheduleDiscordRetry()
     })
   } catch (err) {
     log.debug('Discord RPC init failed:', err.message)
     discordRPC = null
+    scheduleDiscordRetry()
   }
 }
 
