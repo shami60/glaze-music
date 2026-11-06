@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glaze Music — your library and YouTube Music in one player</title>
+<meta name="description" content="A desktop music player that treats your own files and YouTube Music as one library. Free for Windows, no account needed for local playback.">
+<meta property="og:title" content="Glaze Music">
+<meta property="og:description" content="Your library and YouTube Music in one player. Free for Windows.">
+<meta property="og:image" content="https://shami60.github.io/glaze-music/screenshots/home.jpg">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg: #08080c;
+    --surface: #101018;
+    --surface-2: #16161f;
+    --line: rgba(255,255,255,.09);
+    --ink: #f4f4f6;
+    --muted: #9b9ba8;
+    --accent: #8b5cf6;
+    --accent-soft: rgba(139,92,246,.14);
+    --radius: 16px;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; }
+  .wrap { width: min(1120px, calc(100% - 40px)); margin-inline: auto; }
+
+  /* ── nav ── */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(8,8,12,.82);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav { display: flex; align-items: center; gap: 28px; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; letter-spacing: -.02em; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px var(--accent); }
+  nav .links { display: flex; gap: 22px; margin-left: auto; font-size: 14px; color: var(--muted); }
+  nav .links a:hover { color: var(--ink); }
+  @media (max-width: 720px) { nav .links { display: none; } }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 11px 20px; border-radius: 11px; font-size: 14px; font-weight: 600;
+    background: var(--accent); color: #fff; border: 1px solid transparent;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .btn:hover { background: #7c4ff0; transform: translateY(-1px); }
+  .btn.ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn.small { padding: 8px 15px; font-size: 13px; }
+
+  /* ── hero ── */
+  .hero { padding: 78px 0 0; text-align: center; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px; font-size: 12.5px; color: var(--muted);
+    border: 1px solid var(--line); background: var(--surface);
+  }
+  .pill b { color: var(--ink); font-weight: 600; }
+  h1 {
+    margin: 22px 0 0; font-size: clamp(38px, 6vw, 62px); line-height: 1.05;
+    letter-spacing: -.035em; font-weight: 700;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede {
+    margin: 20px auto 0; max-width: 620px; font-size: clamp(15px, 1.9vw, 18px);
+    color: var(--muted);
+  }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
+  .fine { margin-top: 14px; font-size: 12.5px; color: #6d6d7c; }
+
+  .shot {
+    margin: 56px auto 0; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--line); background: var(--surface);
+    box-shadow: 0 40px 90px -30px rgba(0,0,0,.9);
+  }
+  .shot img { width: 100%; }
+
+  /* ── sections ── */
+  section { padding: 84px 0; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin: 0 0 12px;
+  }
+  h2 { margin: 0 0 14px; font-size: clamp(26px, 3.4vw, 34px); letter-spacing: -.025em; font-weight: 680; }
+  .sub { margin: 0; color: var(--muted); max-width: 640px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .split.flip .media { order: -1; }
+  @media (max-width: 860px) {
+    .split { grid-template-columns: 1fr; gap: 28px; }
+    .split.flip .media { order: 0; }
+  }
+  .media img, .media video {
+    width: 100%; border-radius: 14px; border: 1px solid var(--line);
+    box-shadow: 0 26px 60px -26px rgba(0,0,0,.9);
+  }
+  .split h3 { margin: 0 0 10px; font-size: 22px; letter-spacing: -.02em; font-weight: 650; }
+  .split p { margin: 0 0 16px; color: var(--muted); }
+  ul.ticks { margin: 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+  ul.ticks li { position: relative; padding-left: 24px; font-size: 14.5px; color: #c9c9d4; }
+  ul.ticks li::before {
+    content: ""; position: absolute; left: 4px; top: 9px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .85;
+  }
+
+  /* ── gallery ── */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .gallery figure { margin: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+  .gallery img { width: 100%; transition: transform .4s ease; }
+  .gallery figure:hover img { transform: scale(1.02); }
+  .gallery figcaption { padding: 12px 15px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+
+  /* ── faq ── */
+  .faq { display: grid; gap: 12px; max-width: 780px; }
+  details {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 16px 18px;
+  }
+  details[open] { background: var(--surface-2); }
+  summary { cursor: pointer; font-weight: 600; font-size: 15px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--muted); font-weight: 400; }
+  details[open] summary::after { content: "–"; }
+  details p { margin: 12px 0 0; color: var(--muted); font-size: 14.5px; }
+
+  /* ── download band ── */
+  .band {
+    text-align: center; border: 1px solid var(--line); border-radius: 20px;
+    background: radial-gradient(120% 140% at 50% 0%, rgba(139,92,246,.16), transparent 60%), var(--surface);
+    padding: 56px 24px;
+  }
+  .band h2 { margin-bottom: 10px; }
+  .warn {
+    display: inline-block; margin-top: 22px; padding: 12px 16px; border-radius: 10px;
+    background: rgba(234,179,8,.09); border: 1px solid rgba(234,179,8,.28);
+    color: #e8d9a8; font-size: 13px; max-width: 620px; text-align: left;
+  }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 34px 0 44px;
+    color: #6d6d7c; font-size: 13px;
+  }
+  footer .row { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+  footer a:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="#top"><span class="dot"></span> Glaze Music</a>
+      <div class="links">
+        <a href="#features">Features</a>
+        <a href="#screens">Screenshots</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <a class="btn small" href="https://github.com/shami60/glaze-music/releases/latest">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <div class="hero wrap">
+    <span class="pill">Windows 10 &amp; 11 · <b>Free</b> · No account needed for local playback</span>
+    <h1>Your library and <em>YouTube Music</em><br>in one player.</h1>
+    <p class="lede">
+      Most players make you choose between your own files and streaming. Glaze Music keeps both in
+      the same place — point it at a folder, sign in if you want the cloud, and search across everything.
+    </p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/shami60/glaze-music/releases/latest">Download for Windows</a>
+      <a class="btn ghost" href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">View source</a>
+    </div>
+    <p class="fine">~115 MB · No telemetry · Your listening history stays on your machine</p>
+
+    <div class="shot">
+      <img src="screenshots/home.jpg" alt="Glaze Music home screen with now playing, lyrics and album grids" width="1600" height="900">
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <p class="eyebrow">Features</p>
+      <h2>Built for people who actually keep a music library</h2>
+      <p class="sub">Not a website in a window. Playback, the index, downloads and lyrics all run locally.</p>
+    </div>
+
+    <div class="wrap" style="margin-top:52px; display:grid; gap:64px;">
+
+      <div class="split">
+        <div class="text">
+          <h3>One library, two sources</h3>
+          <p>Point it at a folder and it indexes everything with SQLite — tags, artwork, albums, artists.
+             Sign in to YouTube Music and its shelves appear in the same sidebar.</p>
+          <ul class="ticks">
+            <li>Multi-folder scanning with ID3 and Vorbis tags</li>
+            <li>Mixed for you, New releases, Artists you follow</li>
+            <li>One search across both</li>
+          </ul>
+        </div>
+        <div class="media">
+          <img src="screenshots/youtube-music.jpg" alt="YouTube Music shelves inside Glaze Music" loading="lazy">
+        </div>
+      </div>
+
+      <div class="split flip">
+        <div class="text">
+          <h3>Lyrics that follow the vocal</h3>
+          <p>Word-by-word highlighting paced by syllable count, not character length — so a long word
+             gets the time it needs and a short one doesn't sit lit for a second.</p>
+          <ul class="ticks">
+            <li>Instrumental breaks no longer drag the highlight along</li>
+            <li>Right-to-left lyrics render correctly</li>
+            <li>Any line can be translated in place</li>
+          </ul>
+        </div>
+        <div class="media">
+          <img src="screenshots/lyrics-demo.gif" alt="Lyrics highlighting word by word as the song plays" loading="lazy">
+        </div>
+      </div>
+
+      <div class="split">
+        <div class="text">
+          <h3>A real 10-band equalizer</h3>
+          <p>Ten bands from 32 Hz to 16 kHz, seven presets, and an honest label: change a band by hand
+             and the control reads <b>Custom</b> instead of pretending you're still on a preset.</p>
+          <ul class="ticks">
+            <li>Presets survive a restart — the control reflects what's applied</li>
+            <li>8D spatial audio, room reverbs, crossfade</li>
+          </ul>
+        </div>
+        <div class="media">
+          <img src="screenshots/equalizer.jpg" alt="10-band equalizer with Bass Booster selected" loading="lazy">
+        </div>
+      </div>
+
+      <div class="split flip">
+        <div class="text">
+          <h3>Shows on Discord</h3>
+          <p>Your profile shows the track, the artist, the real cover art and a live progress bar —
+             no bot, no account linking, nothing sent to a server.</p>
+          <ul class="ticks">
+            <li>Pausing shows exactly where you stopped</li>
+            <li>Seeking updates it immediately</li>
+            <li>A button links straight back here</li>
+          </ul>
+        </div>
+        <div class="media">
+          <img src="screenshots/explore.jpg" alt="Explore view with artists and recommendations" loading="lazy">
+        </div>
+      </div>
+
+      <div class="split">
+        <div class="text">
+          <h3>Pin anything to the sidebar</h3>
+          <p>Hover a playlist anywhere — YouTube Music, Explore, an artist page — and pin it. It comes
+             back in the view it came from, not whichever tab happens to be active.</p>
+          <ul class="ticks">
+            <li>Works across every browsing surface</li>
+            <li>Remembers the context you pinned it from</li>
+          </ul>
+        </div>
+        <div class="media">
+          <img src="screenshots/recommendations.jpg" alt="Album grid built from recent listening" loading="lazy">
+        </div>
+      </div>
+
+      <div class="split flip">
+        <div class="text">
+          <h3>A mini player for when the window is too much</h3>
+          <p>Shrink the whole app to a narrow strip and keep it beside whatever else you're doing.
+             Same player, not a cut-down version.</p>
+          <ul class="ticks">
+            <li>Full transport and the current position</li>
+            <li>Follows you across virtual desktops</li>
+          </ul>
+        </div>
+        <div class="media" style="max-width:280px;">
+          <img src="screenshots/mini-player.jpg" alt="Glaze Music mini player" loading="lazy">
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="screens">
+    <div class="wrap">
+      <p class="eyebrow">Screenshots</p>
+      <h2>Have a look around</h2>
+      <p class="sub" style="margin-bottom:36px;">Light and dark themes, five palettes, and a layout that fills the window.</p>
+      <div class="gallery">
+        <figure>
+          <img src="screenshots/home.jpg" alt="Home" loading="lazy">
+          <figcaption>Home — now playing, quick picks, made for you</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/lyrics.jpg" alt="Full-screen player" loading="lazy">
+          <figcaption>Full-screen player with synced lyrics</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/explore.jpg" alt="Explore" loading="lazy">
+          <figcaption>Explore — artists in your orbit, filters, trending</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/artist.jpg" alt="Artist page" loading="lazy">
+          <figcaption>Artist pages with discography and top tracks</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/recommendations.jpg" alt="Recommendations" loading="lazy">
+          <figcaption>Built from what you actually listen to</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/youtube-music.jpg" alt="YouTube Music" loading="lazy">
+          <figcaption>YouTube Music shelves, in the same sidebar</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="eyebrow">FAQ</p>
+      <h2>Questions people actually ask</h2>
+      <div class="faq" style="margin-top:32px;">
+        <details>
+          <summary>Is it really free?</summary>
+          <p>Yes. No account, no telemetry, no upsell, no ads. The source is public on GitHub.</p>
+        </details>
+        <details>
+          <summary>Do I need a YouTube Music account?</summary>
+          <p>No. The local library, playlists, favourites, equalizer, lyrics for local files and
+             downloads all work offline. Only the streaming shelves need an account.</p>
+        </details>
+        <details>
+          <summary>What audio quality does it stream?</summary>
+          <p>Around 160 kbps, because the source is YouTube — there is no lossless stream to offer.
+             Files in your own library always play at their native quality.</p>
+        </details>
+        <details>
+          <summary>Why does Windows warn me when I install it?</summary>
+          <p>The installer isn't code-signed yet, so SmartScreen shows “Unknown publisher”. Choose
+             <b>More info → Run anyway</b>. Signing is the only reason for that warning.</p>
+        </details>
+        <details>
+          <summary>Does it work on macOS or Linux?</summary>
+          <p>Not today. The build targets Windows. The Electron code isn't Windows-specific, but
+             nothing else is tested.</p>
+        </details>
+        <details>
+          <summary>Where is my data?</summary>
+          <p>In <code>%APPDATA%\glaze-music</code> on your machine. The index, playlists and settings
+             never leave it.</p>
+        </details>
+        <details>
+          <summary>How do updates work?</summary>
+          <p>The app checks on launch and installs on quit, downloading only the parts that changed.
+             You can also grab the newest installer below.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0;">
+    <div class="wrap">
+      <div class="band">
+        <h2>Get Glaze Music</h2>
+        <p class="sub" style="margin-inline:auto;">Windows 10 or 11 · ~115 MB · Installs per-user, no admin rights</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/shami60/glaze-music/releases/latest">Download the installer</a>
+          <a class="btn ghost" href="https://github.com/shami60/glaze-music/releases" target="_blank" rel="noopener">All releases</a>
+        </div>
+        <p class="warn">
+          <b>Windows will warn you.</b> The installer isn't code-signed yet, so SmartScreen shows
+          “Windows protected your PC — Unknown publisher”. Choose <b>More info → Run anyway</b>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap row">
+    <span>© <span id="y">2026</span> Glaze Music</span>
+    <a href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">Source</a>
+    <a href="https://github.com/shami60/glaze-music/releases" target="_blank" rel="noopener">Releases</a>
+    <a href="https://github.com/shami60/glaze-music/issues" target="_blank" rel="noopener">Issues</a>
+    <span style="margin-left:auto; max-width:520px;">
+      Not affiliated with YouTube or Google. A client for content you have access to — it does not
+      host, mirror or redistribute any audio.
+    </span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('y').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
