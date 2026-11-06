@@ -75,9 +75,9 @@
     box-shadow: 0 0 0 1px rgba(255,255,255,.14), 0 30px 70px -20px rgba(34,211,238,.45), 0 30px 70px -30px rgba(244,114,182,.4);
     animation: float 7s ease-in-out infinite; }
   @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
-  h1 { margin: 0; font-size: clamp(44px, 7vw, 76px); line-height: 1.02; letter-spacing: -.04em; font-weight: 800; text-wrap: balance;
-    /* iridescent, logo colours only: cyan, violet, magenta */
-    background: linear-gradient(92deg, #22d3ee 0%, #818cf8 34%, #a78bfa 58%, #f472b6 88%);
+  h1 { margin: 0; font-size: clamp(44px, 7vw, 76px); line-height: 1.02; letter-spacing: -.04em; font-weight: 800; text-wrap: balance; color: var(--ink); }
+  /* half white, half gradient — like the logo: white glass, iridescent colour */
+  h1 .grad { background: linear-gradient(92deg, #22d3ee 0%, #818cf8 34%, #a78bfa 58%, #f472b6 88%);
     -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
   .yt-red { color: #f43f5e; font-weight: 600; }
   h1 .cy { color: var(--cyan); }
@@ -203,7 +203,7 @@
 <main id="top">
   <div class="hero wrap">
     <img class="mark" src="icon.png" alt="Glaze Music icon — a music note in iridescent glass" width="104" height="104">
-    <h1>Glaze Music.<br>Your music, one player.</h1>
+    <h1>Glaze <span class="grad">Music.</span><br>Your music, <span class="grad">one player.</span></h1>
     <p class="lede">Point it at a folder and it indexes everything — tags, artwork, albums, artists. Add your <span class="yt-red">YouTube Music library</span> and your playlists, mixes and liked songs sit in the same sidebar, searchable together.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/shami60/glaze-music/releases/latest/download/Glaze-Music-1.0.8.exe">Download for Windows</a>
