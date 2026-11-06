@@ -4800,20 +4800,17 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
     }
     const paused = !data.isPlaying && (data.currentTime || 0) > 0
-
-    // Discord's card order is fixed: details (bold), state, then the image text.
-    // The call to action has to be `details` to sit above the track name, so the
-    // track moves down into `state` and the album goes back to the third line.
-    const trackLine = [data.title || 'Unknown Track', data.artist ? `by ${data.artist}` : null]
-      .filter(Boolean)
-      .join(' · ')
-    const stateLine = paused ? `${trackLine} · paused at ${mmss(data.currentTime)}` : trackLine
+    const subtitle = data.artist
+      ? (paused ? `by ${data.artist} · paused at ${mmss(data.currentTime)}` : `by ${data.artist}`)
+      : 'Listening'
 
     const activity = {
-      details: 'Take me to Glaze Music',
-      state: stateLine,
+      details: data.title || 'Unknown Track',
+      state: subtitle,
       largeImageKey: remoteArt,
-      largeImageText: data.album || 'Glaze Music',
+      // Doubles as the third line on the card AND the hover text on the art,
+      // which is the only hint that the image is clickable.
+      largeImageText: 'Take me to Glaze Music',
       smallImageKey: data.isPlaying ? 'play_icon' : 'pause_icon',
       smallImageText: data.isPlaying ? 'Playing' : 'Paused',
       instance: false,
