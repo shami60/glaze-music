@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { usePlayer } from '../context/usePlayer'
+import { EQ_PRESETS, detectEQPreset } from '../context/PlayerContext'
 import { useLibrary } from '../context/LibraryContext'
 import { THEMES } from '../themes'
 import { APPEARANCE_THEMES } from '../appearanceThemes'
@@ -116,6 +117,10 @@ export default function SettingsView({
     streamQuality, applyStreamQuality, streamInfo,
     sleepTimer, setSleepTimerMinutes, setSleepTimerEndOfTrack, clearSleepTimer
   } = usePlayer()
+
+  // Derived, never stored: the dropdown must reflect what the bands are actually
+  // doing, including after a restart or when a band is dragged by hand.
+  const eqPreset = detectEQPreset(eqGains)
 
   // Local countdown only. The player context deliberately stores a static
   // deadline, so this ticking value never re-renders every usePlayer consumer.
@@ -461,17 +466,20 @@ export default function SettingsView({
             </div>
             <div className="flex items-center gap-3">
               <select
+                value={eqPreset}
                 onChange={(e) => applyEQPreset(e.target.value)}
                 className="text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 focus:outline-none cursor-pointer"
-                defaultValue="Flat"
+                title="Equaliser preset"
+                aria-label="Equaliser preset"
               >
-                <option value="Flat" className="bg-[var(--surface-1)] text-white">Flat</option>
-                <option value="Bass Booster" className="bg-[var(--surface-1)] text-white">Bass Booster</option>
-                <option value="Electronic" className="bg-[var(--surface-1)] text-white">Electronic</option>
-                <option value="Vocal Booster" className="bg-[var(--surface-1)] text-white">Vocal Booster</option>
-                <option value="Classical" className="bg-[var(--surface-1)] text-white">Classical</option>
-                <option value="Jazz" className="bg-[var(--surface-1)] text-white">Jazz</option>
-                <option value="Rock" className="bg-[var(--surface-1)] text-white">Rock</option>
+                {Object.keys(EQ_PRESETS).map((name) => (
+                  <option key={name} value={name} className="bg-[var(--surface-1)] text-white">{name}</option>
+                ))}
+                {/* Only offered when the bands match nothing, so the control can
+                    never claim a preset it is not actually applying. */}
+                {eqPreset === 'Custom' && (
+                  <option value="Custom" className="bg-[var(--surface-1)] text-white">Custom</option>
+                )}
               </select>
               <button 
                 onClick={resetEqualizer}
@@ -530,16 +538,16 @@ export default function SettingsView({
                       style={{ bottom: `calc(${(eqGains[i] + 12) / 24 * 100}% - 7px)` }}
                     />
                   </div>
-                  <span className="text-[10px] text-white/20 font-bold tracking-tighter uppercase">
+                  <span className="text-[10px] text-white/35 font-bold tracking-tighter uppercase">
                     {freq >= 1000 ? `${freq/1000}k` : freq}
                   </span>
                 </div>
               ))}
             </div>
             <div className="flex justify-between mt-4 px-2">
-              <span className="text-[9px] font-bold text-white/10 uppercase tracking-widest">Bass</span>
-              <span className="text-[9px] font-bold text-white/10 uppercase tracking-widest">Mid</span>
-              <span className="text-[9px] font-bold text-white/10 uppercase tracking-widest">Treble</span>
+              <span className="text-[9px] font-bold text-white/25 uppercase tracking-widest">Bass</span>
+              <span className="text-[9px] font-bold text-white/25 uppercase tracking-widest">Mid</span>
+              <span className="text-[9px] font-bold text-white/25 uppercase tracking-widest">Treble</span>
             </div>
           </div>
         </section>

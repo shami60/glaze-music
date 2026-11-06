@@ -84,6 +84,23 @@ export const EQ_PRESETS = {
   Rock:          [4, 2.5, -1.5, -3, -1.5, 1.5, 3, 4, 4.5, 5],
 }
 
+/**
+ * Which preset the current gains correspond to, or 'Custom'.
+ *
+ * The EQ used to be driven by an uncontrolled `<select defaultValue="Flat">`, so
+ * after a restart the control read "Flat" while the restored gains were still
+ * boosting the bass — the UI and the audio disagreed, and only the audio was
+ * right. Deriving the label from the gains makes that impossible.
+ */
+export function detectEQPreset(gains) {
+  if (!Array.isArray(gains) || gains.length === 0) return 'Custom'
+  for (const [name, preset] of Object.entries(EQ_PRESETS)) {
+    if (preset.length !== gains.length) continue
+    if (preset.every((g, i) => Math.abs(g - gains[i]) < 0.01)) return name
+  }
+  return 'Custom'
+}
+
 const reverbBufferCache = new Map()
 
 function createReverbBuffer(ctx, preset) {
