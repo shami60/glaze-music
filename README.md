@@ -105,6 +105,21 @@ Leave the mode and the main window comes back at the size you left it.
 
 ---
 
+### Your Discord status shows what you are playing
+
+Glaze Music talks to Discord over local IPC — no bot, no account linking, nothing sent to a server. It
+appears on your profile the moment a track starts:
+
+- **Track and artist** as the presence title and subtitle
+- **A live progress bar** — elapsed and remaining, counting in real time
+- **Play / pause state**, so people can see whether you are actually listening
+- **Album** as the hover text on the icon
+
+It connects automatically when Discord is running and does nothing when it is not — no setup, and no
+error dialog if you do not use Discord at all.
+
+---
+
 ### The rest of it
 
 - **Offline downloads** — save tracks and albums, cover art included, into your library
