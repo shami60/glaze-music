@@ -227,6 +227,7 @@
       <div class="links">
         <a href="#features">Features</a>
         <a href="#screens">Screenshots</a>
+        <a href="#updates">Updates</a>
         <a href="#reviews">Reviews</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">GitHub</a>
@@ -246,7 +247,7 @@
       <a class="btn" href="https://github.com/shami60/glaze-music/releases/latest/download/Glaze-Music-1.0.8.exe">Download for Windows</a>
       <a class="btn ghost" href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">View source</a>
     </div>
-    <p class="dl-count"><b id="dl-num">53</b> downloads</p>
+    <p class="dl-count"><b id="dl-num">53</b> downloads <span style="color:var(--faint);">· counted by GitHub</span></p>
     <p class="trust">No ads &nbsp;·&nbsp; No subscriptions &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; No telemetry</p>
     <p class="oss">Open source — <a href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">the source is public on GitHub</a></p>
     <p class="labs">A <a href="https://x.com/ShamiLabss" target="_blank" rel="noopener">Shami Labs</a> app — I build apps.</p>
@@ -349,6 +350,28 @@
     </div>
   </section>
 
+
+  <section id="updates" style="padding-top:0;">
+    <div class="wrap" style="text-align:center;">
+      <h2>Updates, without the hassle</h2>
+      <p class="sub" style="margin-inline:auto;">Install once. New versions come to you — you never have to come back here and download again unless you want to.</p>
+      <div class="split" style="text-align:left;">
+        <div class="media"><img src="screenshots/home.jpg" alt="Glaze Music home screen" loading="lazy" width="1600" height="900"></div>
+        <div>
+          <h3>How updates work</h3>
+          <ul class="ticks">
+            <li><b>Glaze checks on launch</b> — when a new version is out, it tells you inside the app.</li>
+            <li><b>You update when you're ready</b> — no forced restarts, no surprise installs.</li>
+            <li><b>It installs on quit</b> — and only downloads the parts that changed, so it's fast.</li>
+          </ul>
+          <p class="sub">Current version: <b style="color:var(--ink);">v1.0.8</b> — <a href="https://github.com/shami60/glaze-music/releases" target="_blank" rel="noopener">see what's new</a></p>
+          <div class="cta" style="justify-content:flex-start;">
+            <a class="btn" href="https://github.com/shami60/glaze-music/releases/latest/download/Glaze-Music-1.0.8.exe">Download v1.0.8</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section id="reviews" style="padding-top:0;">
     <div class="wrap" style="text-align:center;">
@@ -479,23 +502,22 @@
   lb.addEventListener('click', function(e){ if(e.target === lb) closeLb(); });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeLb(); });
 
-  // Download counter: starts at 53, +1 on every Download click, remembered in this browser.
-  // It also follows GitHub's real exe download total (28 + real = 53 at launch), so it grows with real downloads too.
+  // Download counter, remastered: one shared source of truth — GitHub's real exe download total + 28 (so it starts at 53).
+  // No per-browser saved count any more: that was the bug — your own test clicks were saved in your browser and hid your friends' real downloads.
   (function(){
     var el = document.getElementById('dl-num'); if(!el) return;
-    var BASE = 53, OFFSET = 28, KEY = 'glaze-dl-count';
-    var saved = parseInt(localStorage.getItem(KEY) || '', 10);
-    var count = isNaN(saved) ? BASE : Math.max(saved, BASE);
+    var OFFSET = 28, count = 53;
     function render(pop){ el.textContent = count; if(pop){ var p = el.parentElement; p.classList.remove('pop'); void p.offsetWidth; p.classList.add('pop'); } }
     render(false);
     fetch('https://api.github.com/repos/shami60/glaze-music/releases')
       .then(function(r){ return r.json(); }).then(function(rs){
         if(!Array.isArray(rs)) return;
         var real = 0; rs.forEach(function(rel){ (rel.assets||[]).forEach(function(a){ if(/\.exe$/i.test(a.name)) real += a.download_count || 0; }); });
-        var live = OFFSET + real; if(live > count){ count = live; localStorage.setItem(KEY, count); render(false); }
+        count = OFFSET + real; render(false);
       }).catch(function(){});
+    // Clicking Download gives a little +1 pop right away; the true count comes from GitHub on the next load (it updates with a short delay).
     document.querySelectorAll('a[href*="Glaze-Music-"]').forEach(function(a){
-      a.addEventListener('click', function(){ count++; localStorage.setItem(KEY, count); render(true); });
+      a.addEventListener('click', function(){ count++; render(true); });
     });
   })();
 
