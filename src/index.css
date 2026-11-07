@@ -525,7 +525,7 @@ input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.25); }
    band — the fill shows through it, which is what makes it read as refraction
    rather than a dot on a line. */
 input[type="range"].lg-volume {
-  height: 22px;
+  height: 18px;
   border-radius: 999px;
   background-size: 100% 4px !important;
   background-position: center !important;
@@ -537,9 +537,9 @@ input[type="range"].lg-volume::-webkit-slider-runnable-track {
 }
 input[type="range"].lg-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 30px;
-  height: 20px;
-  margin-top: -8px; /* centre a 20px capsule on a 4px track */
+  width: 24px;
+  height: 16px;
+  margin-top: -6px; /* centre a 16px capsule on a 4px track */
   border-radius: 999px;
   /* Translucent, so the fill passes through it — an opaque pill would just sit
      on top of the track and lose the refraction. */
@@ -606,7 +606,7 @@ input[type="range"].lg-volume:active::-webkit-slider-thumb { transform: scale(0.
    constantly and a larger target reads as clumsy mid-song. The fill stop is a
    calc() in JS, since this track is fluid rather than a fixed 96px. */
 input[type="range"].lg-seek {
-  height: 18px;
+  height: 14px;
   border-radius: 999px;
   background-size: 100% 4px !important;
   background-position: center !important;
@@ -618,9 +618,9 @@ input[type="range"].lg-seek::-webkit-slider-runnable-track {
 }
 input[type="range"].lg-seek::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 26px;
-  height: 18px;
-  margin-top: -7px; /* centre an 18px capsule on a 4px track */
+  width: 20px;
+  height: 14px;
+  margin-top: -5px; /* centre a 14px capsule on a 4px track */
   border-radius: 999px;
   background: linear-gradient(
     180deg,
@@ -640,8 +640,8 @@ input[type="range"].lg-seek:hover::-webkit-slider-thumb { transform: scale(1.06)
 input[type="range"].lg-seek:active::-webkit-slider-thumb { transform: scale(0.97); }
 input[type="range"].lg-seek::-moz-range-track { height: 4px; background: transparent; border-radius: 999px; }
 input[type="range"].lg-seek::-moz-range-thumb {
-  width: 26px;
-  height: 18px;
+  width: 20px;
+  height: 14px;
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(255,255,255,0.30), rgba(255,255,255,0.03));
   border: 1px solid rgba(255, 255, 255, 0.85);
@@ -651,10 +651,10 @@ input[type="range"].lg-seek::-moz-range-thumb {
 /* Firefox equivalents */
 input[type="range"].lg-volume::-moz-range-track { height: 4px; background: transparent; border-radius: 999px; }
 input[type="range"].lg-volume::-moz-range-thumb {
-  width: 30px;
-  height: 20px;
+  width: 24px;
+  height: 16px;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.08));
+  background: linear-gradient(180deg, rgba(255,255,255,0.30), rgba(255,255,255,0.03));
   border: 1px solid rgba(255, 255, 255, 0.62);
   box-shadow: 0 3px 9px rgba(0,0,0,0.26), inset 0 1px 1px rgba(255,255,255,0.92);
 }

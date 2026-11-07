@@ -211,7 +211,7 @@ export default function AudioPlayer({
   const seekProgressStyle = useMemo(() => {
     const p = Math.min(1, Math.max(0, currentPercent / 100))
     return {
-      background: `linear-gradient(to right, ${accentColor} calc((100% - 26px) * ${p} + 13px), rgba(var(--ink-rgb),0.18) 0)`,
+      background: `linear-gradient(to right, ${accentColor} calc((100% - 20px) * ${p} + 10px), rgba(var(--ink-rgb),0.18) 0)`,
     }
   }, [currentPercent, accentColor])
 
@@ -279,7 +279,7 @@ export default function AudioPlayer({
   // its centre — the fill visibly stops short of the capsule. Compute in px.
   const volProgressStyle = useMemo(() => {
     const W = 96
-    const THUMB = 30
+    const THUMB = 24
     const fillPx = THUMB / 2 + (W - THUMB) * (volPercent / 100)
     return {
       background: `linear-gradient(to right, ${accentColor} ${fillPx}px, rgba(var(--ink-rgb),0.18) ${fillPx}px)`,
