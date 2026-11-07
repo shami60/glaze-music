@@ -195,6 +195,15 @@
   .abuse { margin: 28px auto 0; max-width: 640px; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; background: rgba(255,255,255,.03); }
   .abuse h3 { margin: 0 0 8px; font-size: 15px; }
   .abuse ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; line-height: 1.65; }
+  .review-form { margin: 28px auto 0; max-width: 640px; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; background: rgba(255,255,255,.03); }
+  .review-form h3 { margin: 0 0 14px; font-size: 16px; }
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .form-row label { flex: 1; min-width: 160px; }
+  .review-form label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .review-form select, .review-form textarea { display: block; width: 100%; margin-top: 6px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #14141e; color: var(--ink); font: inherit; font-size: 14px; }
+  .review-form textarea { resize: vertical; }
+  .form-note { margin: 12px 0 0; font-size: 13px; color: var(--faint); line-height: 1.6; }
+  .pending-badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 20px; background: rgba(244,114,182,.18); color: #f472b6; font-size: 12px; font-weight: 600; }
   .review-list { margin: 28px auto 0; max-width: 680px; text-align: left; display: grid; gap: 14px; }
   .review-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; background: rgba(255,255,255,.03); }
   .review-card b { font-size: 15px; }
@@ -347,13 +356,39 @@
         <a class="btn ghost" href="https://github.com/shami60/glaze-music/issues/new?labels=bug&amp;title=%5BBug%5D%20&amp;body=What%20happened%3A%0A%0ASteps%20to%20reproduce%3A%0A1.%20%0A2.%20%0A%0AVersion%20%28e.g.%201.0.8%29%3A%20%0AWindows%20version%3A%20%0A" target="_blank" rel="noopener">Report a bug</a>
         <a class="btn ghost" href="https://github.com/shami60/glaze-music/issues/new?labels=enhancement&amp;title=%5BFeature%5D%20&amp;body=What%20should%20it%20do%3A%0A%0AWhy%20this%20would%20help%3A%0A" target="_blank" rel="noopener">Request a feature</a>
       </div>
+      <form id="review-form" class="review-form">
+        <h3>Write it here, on this site</h3>
+        <div class="form-row">
+          <label>Type
+            <select id="rf-type">
+              <option value="review">Review</option>
+              <option value="bug">Bug report</option>
+              <option value="feature">Feature request</option>
+            </select>
+          </label>
+          <label>Rating
+            <select id="rf-stars">
+              <option value="5">★★★★★ (5)</option>
+              <option value="4">★★★★ (4)</option>
+              <option value="3">★★★ (3)</option>
+              <option value="2">★★ (2)</option>
+              <option value="1">★ (1)</option>
+            </select>
+          </label>
+        </div>
+        <label>Your words
+          <textarea id="rf-text" rows="4" placeholder="What did you think of Glaze Music? What worked, what didn't, what should it do next?" required></textarea>
+        </label>
+        <button class="btn" type="submit">Post it →</button>
+        <p class="form-note">You write it here — then GitHub opens with everything filled in, and one click posts it. Your review shows on this page once it's posted there, so it stays moderated and real.</p>
+      </form>
       <div class="abuse">
         <h3>How we stop review-bombing</h3>
         <ul>
           <li><b style="color:var(--ink);">No anonymous reviews</b> — you need a GitHub account to post, and GitHub blocks spam accounts.</li>
           <li><b style="color:var(--ink);">One review per person</b> — post once, and edit that post if your mind changes.</li>
           <li><b style="color:var(--ink);">Everything is moderated</b> — every review is a public GitHub issue Shami can see, close and remove. Spam, abuse and fake reviews get deleted, and closing one removes it from this page.</li>
-          <li><b style="color:var(--ink);">No open form for bots</b> — there is no form on this site to spam. Posting goes through GitHub, which has its own spam and rate-limit protection.</li>
+          <li><b style="color:var(--ink);">Writing here, posting through GitHub</b> — the form above can't post by itself, so bots can't flood the page. It fills in a GitHub issue for you, and GitHub has its own spam and rate-limit protection.</li>
         </ul>
       </div>
       <div class="review-list" id="reviews-list"><p class="sub">Loading reviews…</p></div>
@@ -449,6 +484,36 @@
       }).catch(function(){});
     document.querySelectorAll('a[href*="Glaze-Music-"]').forEach(function(a){
       a.addEventListener('click', function(){ count++; localStorage.setItem(KEY, count); render(true); });
+    });
+  })();
+
+  // On-site form: write here, then GitHub opens prefilled — one click posts it for real.
+  (function(){
+    var form = document.getElementById('review-form'); if(!form) return;
+    var list = document.getElementById('reviews-list');
+    var KEY = 'glaze-my-review';
+    function showPending(type, stars, text){
+      if(!list) return;
+      var card = document.createElement('article'); card.className = 'review-card';
+      var title = document.createElement('b'); title.textContent = (type === 'bug' ? '[Bug] ' : type === 'feature' ? '[Feature] ' : '[Review] ') + (type === 'review' ? '★'.repeat(stars) : 'Your feedback');
+      var badge = document.createElement('span'); badge.className = 'pending-badge'; badge.textContent = 'Pending — post on GitHub to make it public'; title.append(badge);
+      var body = document.createElement('p'); body.textContent = text;
+      card.append(title, body); list.prepend(card);
+    }
+    try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if(saved && saved.text) showPending(saved.type, saved.stars, saved.text); } catch(e){}
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var type = document.getElementById('rf-type').value;
+      var stars = parseInt(document.getElementById('rf-stars').value, 10);
+      var text = document.getElementById('rf-text').value.trim();
+      if(!text) return;
+      var cfg = { review: { label: 'review', title: '[Review] ' }, bug: { label: 'bug', title: '[Bug] ' }, feature: { label: 'enhancement', title: '[Feature] ' } }[type];
+      var body = (type === 'review' ? 'Rating (1-5): ' + stars + '\n\n' : '') + text + '\n\nVersion: 1.0.8';
+      var url = 'https://github.com/shami60/glaze-music/issues/new?labels=' + cfg.label + '&title=' + encodeURIComponent(cfg.title) + '&body=' + encodeURIComponent(body);
+      try { localStorage.setItem(KEY, JSON.stringify({ type: type, stars: stars, text: text })); } catch(e){}
+      showPending(type, stars, text);
+      window.open(url, '_blank', 'noopener');
+      form.reset();
     });
   })();
 
