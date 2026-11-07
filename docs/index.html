@@ -380,15 +380,24 @@
           <textarea id="rf-text" rows="4" placeholder="What did you think of Glaze Music? What worked, what didn't, what should it do next?" required></textarea>
         </label>
         <button class="btn" type="submit">Post it →</button>
-        <p class="form-note">You write it here — then GitHub opens with everything filled in, and one click posts it. Your review shows on this page once it's posted there, so it stays moderated and real.</p>
+        <p class="form-note">You write it here — then post it in the comments below, right on this page. No going to GitHub.</p>
       </form>
+      <div id="comments" style="margin:28px auto 0;max-width:680px;text-align:left;">
+        <script src="https://utteranc.es/client.js"
+          repo="shami60/glaze-music"
+          issue-term="pathname"
+          label="review"
+          theme="github-dark"
+          crossorigin="anonymous"
+          async></script>
+      </div>
       <div class="abuse">
         <h3>How we stop review-bombing</h3>
         <ul>
           <li><b style="color:var(--ink);">No anonymous reviews</b> — you need a GitHub account to post, and GitHub blocks spam accounts.</li>
           <li><b style="color:var(--ink);">One review per person</b> — post once, and edit that post if your mind changes.</li>
           <li><b style="color:var(--ink);">Everything is moderated</b> — every review is a public GitHub issue Shami can see, close and remove. Spam, abuse and fake reviews get deleted, and closing one removes it from this page.</li>
-          <li><b style="color:var(--ink);">Writing here, posting through GitHub</b> — the form above can't post by itself, so bots can't flood the page. It fills in a GitHub issue for you, and GitHub has its own spam and rate-limit protection.</li>
+          <li><b style="color:var(--ink);">Posting happens on this page</b> — comments below are posted here, with a GitHub sign-in. No anonymous posting, and GitHub has its own spam and rate-limit protection.</li>
         </ul>
       </div>
       <div class="review-list" id="reviews-list"><p class="sub">Loading reviews…</p></div>
@@ -496,7 +505,7 @@
       if(!list) return;
       var card = document.createElement('article'); card.className = 'review-card';
       var title = document.createElement('b'); title.textContent = (type === 'bug' ? '[Bug] ' : type === 'feature' ? '[Feature] ' : '[Review] ') + (type === 'review' ? '★'.repeat(stars) : 'Your feedback');
-      var badge = document.createElement('span'); badge.className = 'pending-badge'; badge.textContent = 'Pending — post on GitHub to make it public'; title.append(badge);
+      var badge = document.createElement('span'); badge.className = 'pending-badge'; badge.textContent = 'Your draft — post it in the comments below to make it public'; title.append(badge);
       var body = document.createElement('p'); body.textContent = text;
       card.append(title, body); list.prepend(card);
     }
@@ -507,13 +516,10 @@
       var stars = parseInt(document.getElementById('rf-stars').value, 10);
       var text = document.getElementById('rf-text').value.trim();
       if(!text) return;
-      var cfg = { review: { label: 'review', title: '[Review] ' }, bug: { label: 'bug', title: '[Bug] ' }, feature: { label: 'enhancement', title: '[Feature] ' } }[type];
-      var body = (type === 'review' ? 'Rating (1-5): ' + stars + '\n\n' : '') + text + '\n\nVersion: 1.0.8';
-      var url = 'https://github.com/shami60/glaze-music/issues/new?labels=' + cfg.label + '&title=' + encodeURIComponent(cfg.title) + '&body=' + encodeURIComponent(body);
       try { localStorage.setItem(KEY, JSON.stringify({ type: type, stars: stars, text: text })); } catch(e){}
       showPending(type, stars, text);
-      window.open(url, '_blank', 'noopener');
       form.reset();
+      var c = document.getElementById('comments'); if(c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   })();
 
