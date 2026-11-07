@@ -12,6 +12,8 @@ Built with Electron and React. Windows installer, no account required for local 
 
 **Free forever — no ads, no subscriptions, no account needed, no telemetry.**
 
+**Updates come to you** — when a new version is out, Glaze Music tells you inside the app, and you update there when you're ready. No need to come back here and download again.
+
 [![Latest release](https://img.shields.io/github/v/release/shami60/glaze-music?label=download&color=8b5cf6)](https://github.com/shami60/glaze-music/releases/latest)
 [![CI](https://github.com/shami60/glaze-music/actions/workflows/ci.yml/badge.svg)](https://github.com/shami60/glaze-music/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6)](#install)
@@ -115,7 +117,7 @@ It is the same player, not a cut-down version: full transport — shuffle, skip,
 - **Queue with history** — reorder, play next, jump back
 - **8D spatial audio**, room reverbs, crossfade and playback speed
 - **Light and dark themes** — Daylight, Sandstone and Liquid Glass, plus your own accent colour
-- **Online updates** — checks on launch, installs on quit, and only downloads the parts that changed
+- **Online updates** — when a new version is out, the app tells you inside the app and you update there when you're ready; it checks on launch, installs on quit, and only downloads the parts that changed
 
 ---
 
