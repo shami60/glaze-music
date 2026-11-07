@@ -1,6 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { usePlayer } from '../context/usePlayer'
 
+// Shared by the sliding pill and the buttons, so the two can never disagree
+// about order or count.
+const EQ_TABS = [
+  { id: 'eq', label: '10-Band EQ' },
+  { id: 'spatial', label: '8D Spatial Audio' },
+  { id: 'room', label: 'Room Acoustics' },
+]
+
 export default function QuickAudioControls({ className = "" }) {
   const {
     is8D,
@@ -95,19 +103,26 @@ export default function QuickAudioControls({ className = "" }) {
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-2 bg-white/[0.04] p-1 rounded-2xl border border-white/5">
-              {[
-                { id: 'eq', label: '10-Band EQ' },
-                { id: 'spatial', label: '8D Spatial Audio' },
-                { id: 'room', label: 'Room Acoustics' }
-              ].map(tab => (
+            <div className="relative flex items-center gap-2 bg-white/[0.04] p-1 rounded-2xl border border-white/5">
+              {/* One pill that glides between tabs, rather than each button painting
+                  its own background — that is what reads as a liquid pill instead of
+                  three separate highlights appearing and disappearing.
+                  translateX is a multiple of (pill width + gap), so the maths holds
+                  at any container width. */}
+              <span
+                aria-hidden="true"
+                className="lg-tab-pill absolute top-1 bottom-1 rounded-xl pointer-events-none"
+                style={{
+                  width: 'calc((100% - 24px) / 3)',
+                  transform: `translateX(calc(${EQ_TABS.findIndex(t => t.id === activeTab)} * (100% + 8px)))`,
+                }}
+              />
+              {EQ_TABS.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    activeTab === tab.id
-                      ? 'bg-white text-black shadow-md'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  className={`relative z-10 flex-1 py-1.5 text-xs font-bold rounded-xl transition-colors cursor-pointer ${
+                    activeTab === tab.id ? 'text-white' : 'text-white/55 hover:text-white/85'
                   }`}
                 >
                   {tab.label}
@@ -189,10 +204,10 @@ export default function QuickAudioControls({ className = "" }) {
                             }}
                           />
 
-                          {/* Knob Handle */}
+                          {/* Knob Handle — glass capsule, same language as the sliders */}
                           <div
-                            className="absolute left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-md pointer-events-none z-0 border border-black/30"
-                            style={{ bottom: `calc(${(eqGains[i] + 12) / 24 * 100}% - 7px)` }}
+                            className="lg-eq-knob absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none z-0"
+                            style={{ bottom: `calc(${(eqGains[i] + 12) / 24 * 100}% - 5.5px)` }}
                           />
                         </div>
                         <span className="text-[10px] text-white/50 font-bold tracking-tighter uppercase">
