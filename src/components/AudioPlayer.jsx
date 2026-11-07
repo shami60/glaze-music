@@ -555,13 +555,9 @@ export default function AudioPlayer({
             <button
               onClick={handleDownload}
               disabled={isCurrentDownloaded || isDownloading}
-              title={
-                isCurrentDownloaded
-                  ? 'Downloaded'
-                  : isDownloading
-                  ? `Downloading ${downloadPercent ?? 0}%`
-                  : 'Download in highest quality'
-              }
+              /* No `title`: a native tooltip is drawn by the OS outside the app
+                 window, so the progress percentage appeared as a grey box hanging
+                 under the dock instead of on the control. */
               aria-label={
                 isCurrentDownloaded
                   ? 'Downloaded'
@@ -569,11 +565,11 @@ export default function AudioPlayer({
                   ? `Downloading ${downloadPercent ?? 0} percent`
                   : 'Download track'
               }
-              className={`relative hidden xl:inline-flex p-1.5 sm:p-2 rounded-full transition-all overflow-hidden ${
+              className={`relative hidden xl:inline-flex items-center justify-center w-8 h-8 rounded-full transition-all overflow-hidden ${
                 isCurrentDownloaded
                   ? 'text-emerald-400 cursor-default'
                   : isDownloading
-                  ? 'text-emerald-400 cursor-wait'
+                  ? 'text-emerald-400 cursor-default'
                   : 'text-white/50 hover:text-white hover:bg-white/10 active:scale-95 cursor-pointer'
               }`}
             >
@@ -602,8 +598,12 @@ export default function AudioPlayer({
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
+              ) : isDownloading ? (
+                <span className="relative z-10 text-[9px] font-bold tabular-nums leading-none text-emerald-300">
+                  {Math.round(downloadPercent ?? 0)}
+                </span>
               ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`w-4 h-4 sm:w-5 sm:h-5 relative z-10 ${isDownloading ? 'animate-pulse' : ''}`}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 sm:w-5 sm:h-5 relative z-10">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
               )}
