@@ -205,9 +205,15 @@ export default function AudioPlayer({
     ? ((currentPercent / 100) * (duration || 0))
     : currentTime
 
-  const seekProgressStyle = useMemo(() => ({
-    background: `linear-gradient(to right, ${accentColor} ${currentPercent}%, rgba(var(--ink-rgb),0.18) ${currentPercent}%)`,
-  }), [currentPercent, accentColor])
+  // Same thumb-travel problem as the volume slider, but this track has no fixed
+  // width, so the fill stop is a calc() against the capsule width:
+  //   (100% - capsule) * progress + capsule/2
+  const seekProgressStyle = useMemo(() => {
+    const p = Math.min(1, Math.max(0, currentPercent / 100))
+    return {
+      background: `linear-gradient(to right, ${accentColor} calc((100% - 26px) * ${p} + 13px), rgba(var(--ink-rgb),0.18) 0)`,
+    }
+  }, [currentPercent, accentColor])
 
   // Handle global mouse/touch release while dragging seekbar
   useEffect(() => {
@@ -446,7 +452,7 @@ export default function AudioPlayer({
                 onPointerUp={handleSeekCommit}
                 onKeyUp={handleSeekCommit}
                 style={seekProgressStyle}
-                className="w-full h-[3px] rounded-full cursor-pointer transition-none focus:outline-none"
+                className="lg-seek w-full cursor-pointer transition-none focus:outline-none"
               />
             </div>
 
