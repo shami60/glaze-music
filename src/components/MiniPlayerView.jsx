@@ -490,9 +490,10 @@ export default function MiniPlayerView({
               onTouchEnd={handleSeekCommit}
               disabled={!currentTrack || !duration}
               style={{
-                background: `linear-gradient(to right, var(--color-white) ${displayProgress}%, color-mix(in srgb, var(--color-white) 28%, transparent) ${displayProgress}%)`
+                // Capsule-width correction, same as the dock and full-screen bars.
+                background: `linear-gradient(to right, var(--color-white) calc((100% - 20px) * ${Math.min(1, Math.max(0, (isNaN(displayProgress) ? 0 : displayProgress) / 100))} + 10px), color-mix(in srgb, var(--color-white) 28%, transparent) 0)`
               }}
-              className="mini-scrubber w-full h-[3px] rounded-full cursor-pointer appearance-none outline-none transition-colors duration-150"
+              className="lg-seek w-full cursor-pointer appearance-none outline-none"
             />
           </div>
           

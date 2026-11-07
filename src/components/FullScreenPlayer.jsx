@@ -104,9 +104,26 @@ export default function FullScreenPlayer() {
     }
   }, [isDragging, seekPercent, seekTo])
 
+  // Reading e.target.value on mousedown gives the OLD position: the browser has
+  // not yet moved the thumb to the click point, so seekPercent was set to the
+  // previous spot for a frame and the thumb snapped back before jumping forward —
+  // the glitch when dragging. Derive it from the pointer instead, mirroring the
+  // native thumb travel so the click lands where it was aimed.
+  const percentFromPointer = (e) => {
+    const el = e.currentTarget
+    const rect = el.getBoundingClientRect()
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX
+    if (!rect.width || typeof clientX !== 'number') return null
+    const THUMB = 20
+    const x = clientX - rect.left - THUMB / 2
+    const travel = Math.max(1, rect.width - THUMB)
+    return Math.min(100, Math.max(0, (x / travel) * 100))
+  }
+
   const handleSeekStart = (e) => {
     setIsDragging(true)
-    setSeekPercent(parseFloat(e.target.value))
+    const p = percentFromPointer(e)
+    if (p !== null) setSeekPercent(p)
   }
 
   const handleSeekChange = (e) => {
@@ -130,8 +147,10 @@ export default function FullScreenPlayer() {
   const currentPercent = isDragging ? seekPercent : baseProgress
   const currentTime = isDragging ? ((seekPercent / 100) * (duration || 0)) : baseCurrentTime
 
+  // Same capsule-width correction as the dock sliders: a thumb travels
+  // (width - thumb), not the full width, so the fill must end at its centre.
   const seekStyle = {
-    background: `linear-gradient(to right, rgba(var(--ink-rgb),0.9) ${currentPercent}%, rgba(var(--ink-rgb),0.1) ${currentPercent}%)`,
+    background: `linear-gradient(to right, rgba(var(--ink-rgb),0.9) calc((100% - 20px) * ${Math.min(1, Math.max(0, currentPercent / 100))} + 10px), rgba(var(--ink-rgb),0.1) 0)`,
   }
 
   // Determine button color
@@ -325,7 +344,7 @@ export default function FullScreenPlayer() {
                 onTouchEnd={handleSeekCommit}
                 onKeyUp={handleSeekCommit}
                 style={seekStyle}
-                className="flex-1 h-1.5 rounded-full cursor-pointer"
+                className="lg-seek flex-1 cursor-pointer"
               />
               <span className="text-xs font-medium text-white/60 w-10 tabular-nums drop-shadow-sm">
                 {formatTime(duration)}
@@ -411,7 +430,7 @@ export default function FullScreenPlayer() {
               onTouchEnd={handleSeekCommit}
               onKeyUp={handleSeekCommit}
               style={seekStyle}
-              className="flex-1 h-1.5 rounded-full cursor-pointer"
+              className="lg-seek flex-1 cursor-pointer"
             />
             <span className="text-xs font-medium text-white/60 w-10 tabular-nums drop-shadow-sm">
               {formatTime(duration)}
