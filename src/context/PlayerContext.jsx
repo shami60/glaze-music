@@ -56,13 +56,26 @@ function makeTrack(src, overrides = {}) {
   // Stale stream URLs expire after a short time — never reuse them from persistent storage
   const playURL = isRemote ? null : (overrides.playURL || null)
 
+  // A local file whose tags could not be read falls back to its filename — which
+  // carries the extension and the `[videoId]` our downloader appends to the name.
+  // Both ended up displayed as part of the title.
+  const titleFromSrc = (src) => {
+    if (!src) return null
+    const base = String(src).split(/[/\\]/).pop() || ''
+    const cleaned = base
+      .replace(/\.[a-z0-9]{2,5}$/i, '')
+      .replace(/\s*\[[A-Za-z0-9_-]{6,}\]\s*$/, '')
+      .trim()
+    return cleaned || base || null
+  }
+
   return {
     ...overrides,
     id: overrides.id || `${Date.now()}-${Math.random()}`,
     src: actualSrc,
     playURL,
     videoId: videoId || overrides.videoId || (actualSrc.startsWith('yt:') ? actualSrc.replace('yt:', '') : null),
-    title: overrides.title || (actualSrc ? actualSrc.split(/[/\\]/).pop() : null),
+    title: overrides.title || titleFromSrc(actualSrc),
     artist: overrides.artist ?? null,
     album: overrides.album ?? null,
     duration: overrides.duration || 0,

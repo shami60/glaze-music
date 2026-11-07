@@ -4665,6 +4665,24 @@ app.whenReady().then(async () => {
       }
     } catch { /* missing art or unreadable file */ }
 
+    // Downloaded tracks carry their video id in the filename — `Title [id].m4a`.
+    // When the tags have no picture (no ffmpeg at download time), that id is
+    // enough to show the real cover instead of a blank tile.
+    const idMatch = /\[([A-Za-z0-9_-]{11})\]/.exec(path.basename(filePath))
+    if (idMatch) {
+      try {
+        const res = await fetch(`https://i.ytimg.com/vi/${idMatch[1]}/mqdefault.jpg`)
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer())
+          artCacheSet(filePath, { data: buf, format: 'image/jpeg' })
+          return new Response(buf, {
+            status: 200,
+            headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'max-age=86400' },
+          })
+        }
+      } catch { /* offline — fall through to the blank tile */ }
+    }
+
     // Cache negative result so we don't re-parse file repeatedly and avoid 404 console errors
     artCacheSet(filePath, { data: EMPTY_ART_GIF, format: 'image/gif' })
     return new Response(EMPTY_ART_GIF, {

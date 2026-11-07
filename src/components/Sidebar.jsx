@@ -2,6 +2,11 @@ import React, { useState, useMemo } from 'react'
 import { usePlayer } from '../context/usePlayer'
 import { getRandomAnimePfp, resolvePfpUrl } from '../constants/animePfps'
 import FancyUsername, { AnimatedAvatar } from './FancyUsername'
+// A neutral tile, so an expired cover degrades quietly instead of showing the
+// browser's broken-image glyph.
+const PIN_ART_FALLBACK =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23ffffff1a'/%3E%3C/svg%3E"
+
 import { getSizedArtURL } from '../utils'
 
 export default function Sidebar({
@@ -220,12 +225,15 @@ export default function Sidebar({
                     title={pin.subtitle ? `${pin.title} — ${pin.subtitle}` : pin.title}
                     className="w-full flex items-center gap-2 pl-1 pr-6 py-1 rounded-lg hover:bg-white/[0.07] text-white/60 hover:text-white text-left transition-all cursor-pointer"
                   >
-                    {pin.art ? (
+                    {/* Test the resolved URL, not `pin.art`: an unrenderable value
+                        still passes a truthiness check and yields a broken image. */}
+                    {getSizedArtURL(pin.art, 'thumb') ? (
                       <img
                         src={getSizedArtURL(pin.art, 'thumb')}
                         alt=""
                         loading="lazy"
                         decoding="async"
+                        onError={(e) => { e.currentTarget.src = PIN_ART_FALLBACK }}
                         className="w-6 h-6 rounded-md object-cover shrink-0 bg-white/5"
                       />
                     ) : (
