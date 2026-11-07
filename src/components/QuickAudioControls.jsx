@@ -5,8 +5,7 @@ import { usePlayer } from '../context/usePlayer'
 // about order or count.
 const EQ_TABS = [
   { id: 'eq', label: '10-Band EQ' },
-  { id: 'spatial', label: '8D Spatial Audio' },
-  { id: 'room', label: 'Room Acoustics' },
+  { id: 'space', label: 'Spatial & Room' },
 ]
 
 export default function QuickAudioControls({ className = "" }) {
@@ -79,9 +78,16 @@ export default function QuickAudioControls({ className = "" }) {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-lg">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path d="M10 20h4V4h-4v16zm-6 0h4v-8H4v8zM16 9v11h4V9h-4z"/>
+                {/* Sliders, not a bar chart — the old glyph read as "statistics".
+                    Neutral glass instead of hardcoded indigo, so it follows the theme. */}
+                <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/20 flex items-center justify-center text-white/80 shadow-lg">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="w-5 h-5">
+                    <path d="M3.5 7h5.5M13.5 7h7" />
+                    <path d="M3.5 12h2.5M10.5 12h10" />
+                    <path d="M3.5 17h8.5M16.5 17h4" />
+                    <circle cx="11.5" cy="7" r="1.9" fill="currentColor" stroke="none" />
+                    <circle cx="8.5" cy="12" r="1.9" fill="currentColor" stroke="none" />
+                    <circle cx="14.5" cy="17" r="1.9" fill="currentColor" stroke="none" />
                   </svg>
                 </div>
                 <div>
@@ -113,7 +119,7 @@ export default function QuickAudioControls({ className = "" }) {
                 aria-hidden="true"
                 className="lg-tab-pill absolute top-1 bottom-1 rounded-xl pointer-events-none"
                 style={{
-                  width: 'calc((100% - 24px) / 3)',
+                  width: 'calc((100% - 16px) / 2)',
                   transform: `translateX(calc(${EQ_TABS.findIndex(t => t.id === activeTab)} * (100% + 8px)))`,
                 }}
               />
@@ -220,8 +226,10 @@ export default function QuickAudioControls({ className = "" }) {
               </div>
             )}
 
-            {/* ── TAB 2: 8D Spatial Audio ──────────────────────────────────── */}
-            {activeTab === 'spatial' && (
+            {/* ── TAB 2: Spatial & Room ──────────────────────────────────────
+                Merged: both controls answer "make it sound like somewhere else",
+                and split across two tabs each one felt thin. */}
+            {activeTab === 'space' && (
               <div className="flex flex-col gap-5 py-2">
                 <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10">
                   <div>
@@ -268,13 +276,9 @@ export default function QuickAudioControls({ className = "" }) {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* ── TAB 3: Acoustic Room Models (Reverb) ──────────────────────── */}
-            {activeTab === 'room' && (
-              <div className="flex flex-col gap-3 py-2">
-                <p className="text-xs text-white/60">Simulate physical acoustic environments using convolution reverb:</p>
+                <div className="flex flex-col gap-3 pt-1">
+                  <p className="text-xs text-white/60">Simulate physical acoustic environments using convolution reverb:</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {[
                     { id: 'none', name: 'None (Dry)', desc: 'Pure direct sound' },
@@ -290,7 +294,10 @@ export default function QuickAudioControls({ className = "" }) {
                         onClick={() => setReverbPreset(preset.id)}
                         className={`p-3 rounded-2xl border text-left transition-all duration-200 cursor-pointer ${
                           active
-                            ? 'bg-purple-500/20 border-purple-500/50 text-purple-200 shadow-lg'
+                            // Theme-aware: `text-purple-200` is a literal Tailwind
+                            // colour, so on a light theme it was light-on-light and
+                            // nearly invisible. `text-white` maps to the theme ink.
+                            ? 'bg-white/20 border-white/45 text-white shadow-lg'
                             : 'bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.08] hover:text-white'
                         }`}
                       >
@@ -299,6 +306,7 @@ export default function QuickAudioControls({ className = "" }) {
                       </button>
                     )
                   })}
+                  </div>
                 </div>
               </div>
             )}
