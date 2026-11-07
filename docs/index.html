@@ -190,6 +190,17 @@
   .lightbox .close { position: absolute; top: 18px; right: 22px; width: 44px; height: 44px; border-radius: 50%;
     border: 1px solid var(--line); background: rgba(255,255,255,.08); color: #fff; font-size: 20px; cursor: pointer; }
 
+  /* ——— reviews & feedback ——— */
+  .review-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 28px 0 8px; }
+  .abuse { margin: 28px auto 0; max-width: 640px; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; background: rgba(255,255,255,.03); }
+  .abuse h3 { margin: 0 0 8px; font-size: 15px; }
+  .abuse ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; line-height: 1.65; }
+  .review-list { margin: 28px auto 0; max-width: 680px; text-align: left; display: grid; gap: 14px; }
+  .review-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; background: rgba(255,255,255,.03); }
+  .review-card b { font-size: 15px; }
+  .review-card .meta { color: var(--faint); font-size: 13px; margin-top: 4px; }
+  .review-card p { margin: 10px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+
   .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
   .reveal.in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
@@ -205,6 +216,7 @@
       <div class="links">
         <a href="#features">Features</a>
         <a href="#screens">Screenshots</a>
+        <a href="#reviews">Reviews</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">GitHub</a>
         <a class="x-link" href="https://x.com/ShamiLabss" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.47l8.6-9.83L0 1.15h7.59l5.24 6.93 6.07-6.93Zm-1.29 19.5h2.04L6.49 3.24H4.3l13.31 17.41Z"/></svg> @ShamiLabss</a>
@@ -325,6 +337,29 @@
     </div>
   </section>
 
+
+  <section id="reviews" style="padding-top:0;">
+    <div class="wrap" style="text-align:center;">
+      <h2>Reviews &amp; feedback</h2>
+      <p class="sub" style="margin-inline:auto;">Tried Glaze Music? Tell us what you think — good or bad. Found a bug, or want a feature? That goes here too.</p>
+      <div class="review-actions">
+        <a class="btn" href="https://github.com/shami60/glaze-music/issues/new?labels=review&amp;title=%5BReview%5D%20&amp;body=Rating%20%281-5%29%3A%20%0AVersion%20%28e.g.%201.0.8%29%3A%20%0A%0AWhat%20I%20liked%3A%0A%0AWhat%20could%20be%20better%3A%0A" target="_blank" rel="noopener">Write a review</a>
+        <a class="btn ghost" href="https://github.com/shami60/glaze-music/issues/new?labels=bug&amp;title=%5BBug%5D%20&amp;body=What%20happened%3A%0A%0ASteps%20to%20reproduce%3A%0A1.%20%0A2.%20%0A%0AVersion%20%28e.g.%201.0.8%29%3A%20%0AWindows%20version%3A%20%0A" target="_blank" rel="noopener">Report a bug</a>
+        <a class="btn ghost" href="https://github.com/shami60/glaze-music/issues/new?labels=enhancement&amp;title=%5BFeature%5D%20&amp;body=What%20should%20it%20do%3A%0A%0AWhy%20this%20would%20help%3A%0A" target="_blank" rel="noopener">Request a feature</a>
+      </div>
+      <div class="abuse">
+        <h3>How we stop review-bombing</h3>
+        <ul>
+          <li><b style="color:var(--ink);">No anonymous reviews</b> — you need a GitHub account to post, and GitHub blocks spam accounts.</li>
+          <li><b style="color:var(--ink);">One review per person</b> — post once, and edit that post if your mind changes.</li>
+          <li><b style="color:var(--ink);">Everything is moderated</b> — every review is a public GitHub issue Shami can see, close and remove. Spam, abuse and fake reviews get deleted, and closing one removes it from this page.</li>
+          <li><b style="color:var(--ink);">No open form for bots</b> — there is no form on this site to spam. Posting goes through GitHub, which has its own spam and rate-limit protection.</li>
+        </ul>
+      </div>
+      <div class="review-list" id="reviews-list"><p class="sub">Loading reviews…</p></div>
+    </div>
+  </section>
+
   <section id="faq" style="padding-top:0;">
     <div class="wrap">
       <h2>Questions people actually ask</h2>
@@ -415,6 +450,25 @@
     document.querySelectorAll('a[href*="Glaze-Music-"]').forEach(function(a){
       a.addEventListener('click', function(){ count++; localStorage.setItem(KEY, count); render(true); });
     });
+  })();
+
+  // Live reviews: open GitHub issues labelled "review". Closed or removed ones disappear automatically.
+  (function(){
+    var list = document.getElementById('reviews-list'); if(!list) return;
+    fetch('https://api.github.com/repos/shami60/glaze-music/issues?labels=review&state=open&per_page=20')
+      .then(function(r){ return r.json(); }).then(function(items){
+        if(!Array.isArray(items) || !items.length){ list.innerHTML = '<p class="sub">No reviews yet — be the first to write one.</p>'; return; }
+        list.innerHTML = '';
+        items.forEach(function(it){
+          var card = document.createElement('article'); card.className = 'review-card';
+          var title = document.createElement('b'); title.textContent = it.title || 'Review';
+          var meta = document.createElement('div'); meta.className = 'meta';
+          meta.textContent = 'by ' + (it.user && it.user.login ? it.user.login : 'someone') + ' · ' + new Date(it.created_at).toLocaleDateString();
+          var body = document.createElement('p'); body.textContent = (it.body || '').slice(0, 400);
+          var link = document.createElement('a'); link.href = it.html_url; link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Read on GitHub →'; link.style.cssText = 'display:inline-block;margin-top:10px;font-size:13px;';
+          card.append(title, meta, body, link); list.append(card);
+        });
+      }).catch(function(){ list.innerHTML = '<p class="sub">Reviews live on GitHub — <a href="https://github.com/shami60/glaze-music/issues?q=label%3Areview">see them there</a>.</p>'; });
   })();
 
   // Reveal on scroll, once.
