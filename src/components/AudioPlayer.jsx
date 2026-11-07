@@ -268,9 +268,17 @@ export default function AudioPlayer({
   }
 
   const volPercent = isMuted ? 0 : volume * 100
-  const volProgressStyle = useMemo(() => ({
-    background: `linear-gradient(to right, ${accentColor} ${volPercent}%, rgba(var(--ink-rgb),0.18) ${volPercent}%)`,
-  }), [volPercent, accentColor])
+  // A native range thumb travels from 0 to (width - thumbWidth), not the full
+  // width, so a percentage gradient ends up at the thumb's LEFT edge instead of
+  // its centre — the fill visibly stops short of the capsule. Compute in px.
+  const volProgressStyle = useMemo(() => {
+    const W = 96
+    const THUMB = 30
+    const fillPx = THUMB / 2 + (W - THUMB) * (volPercent / 100)
+    return {
+      background: `linear-gradient(to right, ${accentColor} ${fillPx}px, rgba(var(--ink-rgb),0.18) ${fillPx}px)`,
+    }
+  }, [volPercent, accentColor])
 
   useEffect(() => {
     const off = window.electronAPI?.onDownloadProgress?.((data) => {
@@ -844,8 +852,8 @@ export default function AudioPlayer({
                 setVolume(val)
                 if (val > 0) setIsMuted(false)
               }}
-              style={{ ...volProgressStyle, width: '68px' }}
-              className="w-[68px] max-w-[68px] h-[3px] rounded-full cursor-pointer transition-all shrink-0"
+              style={{ ...volProgressStyle, width: '96px' }}
+              className="lg-volume w-[96px] max-w-[96px] cursor-pointer transition-all shrink-0"
             />
           </div>
 

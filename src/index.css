@@ -519,6 +519,66 @@ input[type="range"]::-webkit-slider-thumb {
 }
 input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.25); }
 
+/* ── Liquid-glass volume slider ────────────────────────────────────────────
+   The fill gradient is applied inline, so it is pinned to a 4px band in the
+   middle of a taller input. The thumb is then a glass capsule sitting over that
+   band — the fill shows through it, which is what makes it read as refraction
+   rather than a dot on a line. */
+input[type="range"].lg-volume {
+  height: 22px;
+  border-radius: 999px;
+  background-size: 100% 4px !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+input[type="range"].lg-volume::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent; /* the inline gradient paints the track */
+}
+input[type="range"].lg-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 30px;
+  height: 20px;
+  margin-top: -8px; /* centre a 20px capsule on a 4px track */
+  border-radius: 999px;
+  /* Translucent, so the fill passes through it — an opaque pill would just sit
+     on top of the track and lose the refraction. */
+  /* Kept low: the white is only here to catch light, not to tint the fill. */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.30) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 3px 9px rgba(0, 0, 0, 0.26),
+    0 1px 2px rgba(0, 0, 0, 0.16),
+    inset 0 1px 1px rgba(255, 255, 255, 0.92),
+    inset 0 -2px 4px rgba(255, 255, 255, 0.32);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+input[type="range"].lg-volume:hover::-webkit-slider-thumb {
+  transform: scale(1.05);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    inset 0 1px 1px rgba(255, 255, 255, 0.96),
+    inset 0 -2px 4px rgba(255, 255, 255, 0.38);
+}
+input[type="range"].lg-volume:active::-webkit-slider-thumb { transform: scale(0.97); }
+
+/* Firefox equivalents */
+input[type="range"].lg-volume::-moz-range-track { height: 4px; background: transparent; border-radius: 999px; }
+input[type="range"].lg-volume::-moz-range-thumb {
+  width: 30px;
+  height: 20px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.08));
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  box-shadow: 0 3px 9px rgba(0,0,0,0.26), inset 0 1px 1px rgba(255,255,255,0.92);
+}
+
 /* ── Draggable title bar region ──────────────────────────────────────────── */
 .drag-region  { -webkit-app-region: drag;    }
 .no-drag      { -webkit-app-region: no-drag; }
