@@ -2686,34 +2686,77 @@ ipcMain.handle('file:getDefaultDownloadFolder', () => {
   }
 })
 
-ipcMain.handle('youtube:getLyrics', async (_event, videoId, title, artist) => {
-  try {
-    // 1. Try lrclib.net for synced lyrics
-    if (title && artist) {
-      const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`
-      const res = await net.fetch(url, { headers: { 'User-Agent': 'GlazeMusic/1.0' } })
-      if (res.ok) {
-        const data = await res.json()
-        if (data && data.length > 0 && data[0].syncedLyrics) {
-          return { type: 'synced', text: data[0].syncedLyrics }
-        }
-      }
-    }
-    
-    // 2. Fallback to youtubei.js plain text lyrics (only if videoId is valid)
-    if (videoId && typeof videoId === 'string' && videoId.length > 0) {
-      const yt = await initYouTubeI()
-      if (yt) {
-        const lyrics = await yt.music.getLyrics(videoId)
-        if (lyrics && lyrics.description?.text) {
-          return { type: 'plain', text: lyrics.description.text }
-        }
-      }
-    }
-  } catch (e) {
-    console.error('youtube:getLyrics error:', e)
+// ─── Lyrics ──────────────────────────────────────────────────────────────────
+// Lyrics never change for a given track, so the whole lookup is cached. Without
+// this every re-open of the lyrics panel paid the full network cost again.
+// Keyed by video id when we have one, otherwise title+artist.
+const LYRICS_CACHE_MAX = 200
+const lyricsCache = new Map()
+function cacheLyrics(key, value) {
+  lyricsCache.delete(key)
+  lyricsCache.set(key, value)
+  while (lyricsCache.size > LYRICS_CACHE_MAX) {
+    lyricsCache.delete(lyricsCache.keys().next().value)
   }
+}
+
+// lrclib.net regularly takes several seconds — one measured request went from
+// 0.9s to 6.7s on a repeat — so a hung request must not hold the panel hostage.
+// On timeout we fall through to the next source instead of waiting.
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
+  ])
+}
+
+async function fetchLrclibLyrics(title, artist) {
+  const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`
+  const res = await net.fetch(url, { headers: { 'User-Agent': 'GlazeMusic/1.0' } })
+  if (!res.ok) return null
+  const data = await res.json()
+  const synced = Array.isArray(data) ? data.find((d) => d && d.syncedLyrics) : null
+  return synced ? { type: 'synced', text: synced.syncedLyrics } : null
+}
+
+async function fetchYouTubeLyrics(videoId) {
+  const yt = await initYouTubeI()
+  if (!yt) return null
+  const lyrics = await yt.music.getLyrics(videoId)
+  if (lyrics && lyrics.description?.text) return { type: 'plain', text: lyrics.description.text }
   return null
+}
+
+ipcMain.handle('youtube:getLyrics', async (_event, videoId, title, artist) => {
+  const key = videoId && typeof videoId === 'string' && videoId.length > 0
+    ? `v:${videoId}`
+    : `t:${(title || '').toLowerCase()}|${(artist || '').toLowerCase()}`
+
+  if (lyricsCache.has(key)) return lyricsCache.get(key)
+
+  const attempts = []
+  // Both sources are started together rather than one after the other: when
+  // lrclib has nothing, waiting for it to say so before asking YouTube doubled
+  // the wait for exactly the tracks that were already slowest.
+  if (title && artist) {
+    attempts.push(withTimeout(fetchLrclibLyrics(title, artist), 5000, 'lrclib'))
+  }
+  if (videoId && typeof videoId === 'string' && videoId.length > 0) {
+    attempts.push(withTimeout(fetchYouTubeLyrics(videoId), 6000, 'youtube'))
+  }
+
+  let best = null
+  for (const settled of await Promise.allSettled(attempts)) {
+    if (settled.status !== 'fulfilled' || !settled.value) continue
+    // Synced beats plain, whichever arrived first.
+    if (settled.value.type === 'synced') { best = settled.value; break }
+    if (!best) best = settled.value
+  }
+
+  // Cache the negative result too — a track with no lyrics should not be
+  // re-queried every time it is opened.
+  cacheLyrics(key, best)
+  return best
 })
 
 // In-memory cache for translated lyrics in main process.
