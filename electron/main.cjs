@@ -2691,13 +2691,28 @@ ipcMain.handle('file:getDefaultDownloadFolder', () => {
 // this every re-open of the lyrics panel paid the full network cost again.
 // Keyed by video id when we have one, otherwise title+artist.
 const LYRICS_CACHE_MAX = 200
+// Only a synced result is final. A plain or missing result may just mean lrclib
+// timed out or was briefly unavailable, so caching it forever would pin that
+// track to non-animated lyrics for the rest of the session — which is exactly
+// what happened before this TTL was added.
+const LYRICS_MISS_TTL_MS = 5 * 60 * 1000
 const lyricsCache = new Map()
 function cacheLyrics(key, value) {
   lyricsCache.delete(key)
-  lyricsCache.set(key, value)
+  lyricsCache.set(key, { value, at: Date.now() })
   while (lyricsCache.size > LYRICS_CACHE_MAX) {
     lyricsCache.delete(lyricsCache.keys().next().value)
   }
+}
+function readLyricsCache(key) {
+  const hit = lyricsCache.get(key)
+  if (!hit) return undefined
+  const final = hit.value && hit.value.type === 'synced'
+  if (!final && Date.now() - hit.at > LYRICS_MISS_TTL_MS) {
+    lyricsCache.delete(key)
+    return undefined
+  }
+  return hit.value
 }
 
 // lrclib.net regularly takes several seconds — one measured request went from
@@ -2732,7 +2747,8 @@ ipcMain.handle('youtube:getLyrics', async (_event, videoId, title, artist) => {
     ? `v:${videoId}`
     : `t:${(title || '').toLowerCase()}|${(artist || '').toLowerCase()}`
 
-  if (lyricsCache.has(key)) return lyricsCache.get(key)
+  const cached = readLyricsCache(key)
+  if (cached !== undefined) return cached
 
   const attempts = []
   // Both sources are started together rather than one after the other: when
