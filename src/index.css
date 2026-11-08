@@ -601,6 +601,119 @@ input[type="range"].lg-volume:active::-webkit-slider-thumb { transform: scale(0.
   .lg-tab-pill { transition: none; }
 }
 
+/* ── Liquid-glass round button ─────────────────────────────────────────────
+   The carousel chevrons. Same language as the volume and seek capsules: a
+   translucent pane, a hairline rim, a specular top edge and a real backdrop
+   blur — so it refracts the album art sliding underneath instead of sitting on
+   it as a flat disc.
+
+   Written against `--color-white`, which is near-black on light themes, so the
+   fill always tints *toward the ink* and the icon — also `--color-white` —
+   keeps its contrast in every theme. That is why this is not a hardcoded white
+   gradient: on a light canvas a white pane is invisible, and a hardcoded dark
+   fill would break on the dark ones.
+
+   Two things that used to be here and are not:
+   - `contain: strict`. Paint containment stops Chromium sampling the backdrop,
+     so `backdrop-blur` was doing nothing at all, and it clipped the drop shadow
+     to the border box. That is why these read as flat black circles.
+   - a transform for vertical centring (`-translate-y-1/2`). A transform on the
+     blurred element itself is the other reliable way to lose the sampling, so
+     callers centre with `inset-y-0 my-auto` instead. */
+.lg-glass-btn {
+  /* A surface layer under a specular sheen, the same construction as the dock:
+     `--surface-*` carries the body (so the icon keeps contrast and the pane
+     reads as glass rather than a coloured lens over the artwork), and the
+     gradient is the light catching the top of the pane. Written against the
+     theme tokens, so it is a light pane on light themes and a smoked one on
+     dark — no hardcoded fill. */
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.07) 46%,
+      rgba(255, 255, 255, 0) 72%
+    ),
+    color-mix(in srgb, var(--surface-2) 66%, transparent);
+  border: 1px solid var(--hairline-strong);
+  box-shadow:
+    0 6px 20px -4px rgba(0, 0, 0, 0.36),
+    0 1px 3px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.10);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lg-glass-btn:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.32) 0%,
+      rgba(255, 255, 255, 0.12) 46%,
+      rgba(255, 255, 255, 0) 72%
+    ),
+    color-mix(in srgb, var(--surface-2) 78%, transparent);
+  box-shadow:
+    0 8px 26px -4px rgba(0, 0, 0, 0.44),
+    0 1px 3px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.14);
+}
+
+/* Pressed reads as the pane being pushed in — the highlight shrinks rather
+   than the button scaling, which would drop the backdrop blur mid-click. */
+.lg-glass-btn:active {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.10) 0%,
+      rgba(255, 255, 255, 0.03) 46%,
+      rgba(255, 255, 255, 0) 72%
+    ),
+    color-mix(in srgb, var(--surface-2) 54%, transparent);
+  box-shadow:
+    0 2px 8px -2px rgba(0, 0, 0, 0.30),
+    inset 0 2px 4px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
+/* A stronger pane for the primary action in a glass button group: brighter fill
+   and rim, still no colour. The accent-filled pill that used to sit here was the
+   only saturated thing on an otherwise neutral page, which made a small utility
+   row shout louder than the content. */
+.lg-glass-btn.is-strong {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.34) 0%,
+      rgba(255, 255, 255, 0.12) 46%,
+      rgba(255, 255, 255, 0) 72%
+    ),
+    color-mix(in srgb, var(--surface-2) 84%, transparent);
+  box-shadow:
+    0 6px 20px -4px rgba(0, 0, 0, 0.40),
+    0 1px 3px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.18);
+}
+
+.lg-glass-btn.is-strong:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.44) 0%,
+      rgba(255, 255, 255, 0.18) 46%,
+      rgba(255, 255, 255, 0) 72%
+    ),
+    color-mix(in srgb, var(--surface-2) 92%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-glass-btn { transition: none; }
+}
+
 /* ── Same treatment for the seek bar ───────────────────────────────────────
    Smaller capsule than the volume slider (26x18 vs 30x20): this one is dragged
    constantly and a larger target reads as clumsy mid-song. The fill stop is a

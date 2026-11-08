@@ -400,6 +400,13 @@ export default function ArtistProfileView({
   }
 
   // ── Render: Loading State ───────────────────────────────────────────────
+  // Mounted without an artist to show (e.g. a restored view whose selection is
+  // gone). The fetch effect returns early in that case, so `isLoading` would stay
+  // true forever — render nothing and let the app navigate away instead.
+  if (!artistName && !selectedAlbum) {
+    return <div className="flex-1 w-full h-full" />
+  }
+
   if (isLoading) {
     return (
       <div className="flex-1 w-full flex flex-col items-center justify-center h-full text-white/50 animate-in fade-in">
@@ -431,114 +438,100 @@ export default function ArtistProfileView({
 
     return (
       <div className="flex-1 w-full h-full overflow-y-auto pb-32 animate-in fade-in relative custom-scrollbar">
-        {/* Header Section */}
-        <div className="relative w-full min-h-[300px] sm:min-h-[340px] flex items-end overflow-hidden pb-8 pt-4">
-          {albumThumb ? (
-            <div className="absolute inset-0 z-0 overflow-hidden">
-              <img 
-                src={albumThumb} 
-                alt="" 
-                className="w-full h-full object-cover scale-105 filter blur-sm brightness-50" 
-                style={{ 
-                  objectPosition: 'center 30%',
-                  WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)',
-                  maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)'
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#090910] via-transparent to-black/40" />
-            </div>
-          ) : (
-            <div className="absolute inset-0 z-0 bg-gradient-to-b from-indigo-950/40 via-[#0d0d18] to-[#090910]" />
-          )}
+        {/* Back to the artist, pinned in the empty strip above the cover. */}
+        <div className="sticky top-0 z-30 h-0">
+          <button
+            onClick={() => setSelectedAlbum(null)}
+            className="absolute top-2 left-2 sm:left-3 w-9 h-9 rounded-full lg-glass-btn flex items-center justify-center text-white cursor-pointer"
+            title="Back to Artist"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+        </div>
 
-          <div className="relative z-20 px-6 sm:px-10 w-full flex flex-col gap-5">
-            {/* Back to Artist Button */}
-            <button 
-              onClick={() => setSelectedAlbum(null)}
-              className="self-start px-4 py-2 rounded-full bg-black/50 hover:bg-white/20 backdrop-blur-xl border border-white/10 flex items-center gap-2 transition-all text-white text-xs font-semibold cursor-pointer active:scale-95 shadow-lg"
-              title="Back to Artist"
+        {/* Header — no banner photograph, the same flat treatment as the artist page.
+            A blurred full-bleed copy of the cover behind the title only fought the
+            theme; the cover itself carries the identity. */}
+        {/* Left padding clears the pinned back button above — a square cover has
+            no transparent corner, so unlike the round artist portrait it visibly
+            collided with the chevron. */}
+        <div className="pl-12 sm:pl-16 pr-6 sm:pr-10 pt-2">
+          <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-7">
+            {/* Cover Art */}
+            <div
+              className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden shrink-0 border relative bg-white/5"
+              style={{ borderColor: 'var(--hairline-strong)', boxShadow: `0 16px 40px -16px ${accentColor || '#ef4444'}80` }}
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-              <span>Back to {artistDisplayName}</span>
-            </button>
+              {albumThumb ? (
+                <img
+                  src={albumThumb}
+                  alt={selectedAlbum.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white/30">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+                </div>
+              )}
+            </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6">
-              {/* Cover Art */}
-              <div 
-                className="w-32 h-32 sm:w-44 sm:h-44 rounded-2xl overflow-hidden shrink-0 border border-white/20 shadow-2xl relative bg-white/5"
-                style={{ boxShadow: `0 12px 40px ${accentColor || '#ef4444'}40` }}
-              >
-                {albumThumb ? (
-                  <img 
-                    src={albumThumb} 
-                    alt={selectedAlbum.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/30">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-                  </div>
-                )}
+            <div className="flex-1 min-w-0 text-center sm:text-left">
+              <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15 mb-2">
+                {releaseType}
+              </span>
+
+              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-none mb-2 line-clamp-2">
+                {selectedAlbum.title}
+              </h1>
+
+              <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-white/70">
+                <span className="font-semibold text-white hover:underline cursor-pointer" onClick={() => setSelectedAlbum(null)}>
+                  {releaseArtist}
+                </span>
+                <span>•</span>
+                <span>{isLoadingAlbum ? 'Loading tracks...' : `${albumTracks.length} song${albumTracks.length !== 1 ? 's' : ''}`}</span>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15 backdrop-blur-md mb-2">
-                  {releaseType}
-                </span>
+              {/* Actions */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-4">
+                <button 
+                  onClick={() => {
+                    if (albumTracks.length > 0) replaceQueue(albumTracks, 0)
+                  }}
+                  disabled={albumTracks.length === 0}
+                  style={{ backgroundColor: accentColor || '#ef4444' }}
+                  className="px-7 py-3 rounded-full text-white font-bold text-sm shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  <span>Play All</span>
+                </button>
 
-                <h1 className="text-3xl sm:text-5xl font-black text-white drop-shadow-xl tracking-tight leading-none mb-2 line-clamp-2">
-                  {selectedAlbum.title}
-                </h1>
+                <button 
+                  onClick={() => {
+                    if (albumTracks.length > 0) {
+                      const shuffled = [...albumTracks].sort(() => Math.random() - 0.5)
+                      replaceQueue(shuffled, 0)
+                    }
+                  }}
+                  disabled={albumTracks.length === 0}
+                  className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-sm shadow-lg border border-white/15 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+                  </svg>
+                  <span>Shuffle</span>
+                </button>
 
-                <div className="flex items-center gap-2 text-sm text-white/70">
-                  <span className="font-semibold text-white hover:underline cursor-pointer" onClick={() => setSelectedAlbum(null)}>
-                    {releaseArtist}
-                  </span>
-                  <span>•</span>
-                  <span>{isLoadingAlbum ? 'Loading tracks...' : `${albumTracks.length} song${albumTracks.length !== 1 ? 's' : ''}`}</span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-3 mt-4">
-                  <button 
-                    onClick={() => {
-                      if (albumTracks.length > 0) replaceQueue(albumTracks, 0)
-                    }}
-                    disabled={albumTracks.length === 0}
-                    style={{ backgroundColor: accentColor || '#ef4444' }}
-                    className="px-7 py-3 rounded-full text-white font-bold text-sm shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    <span>Play All</span>
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      if (albumTracks.length > 0) {
-                        const shuffled = [...albumTracks].sort(() => Math.random() - 0.5)
-                        replaceQueue(shuffled, 0)
-                      }
-                    }}
-                    disabled={albumTracks.length === 0}
-                    className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-sm shadow-lg border border-white/15 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-                    </svg>
-                    <span>Shuffle</span>
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      if (albumTracks.length > 0) addToQueue(albumTracks)
-                    }}
-                    disabled={albumTracks.length === 0}
-                    className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/15 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Add all to queue"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
-                  </button>
-                </div>
+                <button 
+                  onClick={() => {
+                    if (albumTracks.length > 0) addToQueue(albumTracks)
+                  }}
+                  disabled={albumTracks.length === 0}
+                  className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/15 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Add all to queue"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+                </button>
               </div>
             </div>
           </div>
@@ -654,97 +647,79 @@ export default function ArtistProfileView({
 
   return (
     <div className="flex-1 w-full h-full overflow-y-auto pb-32 animate-in fade-in relative custom-scrollbar">
+
+      {/* Back sits in the empty strip above the portrait, pinned so it survives
+          scrolling. `h-0` + `sticky` keeps it out of the layout entirely, which is
+          what lets the portrait and name sit flush against the left edge. */}
+      <div className="sticky top-0 z-30 h-0">
+        <button
+          onClick={onBack}
+          className="absolute top-2 left-2 sm:left-3 w-9 h-9 rounded-full lg-glass-btn flex items-center justify-center text-white cursor-pointer"
+          title="Go Back"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+      </div>
       
-      {/* Header Profile Section */}
-      <div className="relative w-full min-h-[340px] sm:min-h-[380px] flex items-end overflow-hidden pb-8 pt-4">
-        {/* Background Banner Image / Ambient Backdrop */}
-        {artistHeaderArt ? (
-          <div className="absolute inset-0 z-0 overflow-hidden">
-            <img 
-              src={artistHeaderArt} 
-              alt="" 
-              className="w-full h-full object-cover scale-105 filter blur-sm brightness-60" 
-              style={{ 
-                objectPosition: 'center 20%',
-                WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 65%, transparent 100%)',
-                maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 65%, transparent 100%)'
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#090910] via-transparent to-black/40" />
-          </div>
-        ) : (
-          <div 
-            className="absolute inset-0 z-0 bg-gradient-to-b from-purple-950/40 via-[#0d0d18] to-[#090910]" 
-          />
-        )}
-        
-        <div className="relative z-20 px-6 sm:px-10 w-full flex flex-col gap-5">
-          {/* Back Button */}
-          <button 
-            onClick={onBack}
-            className="self-start w-10 h-10 rounded-full bg-black/50 hover:bg-white/20 backdrop-blur-xl border border-white/10 flex items-center justify-center transition-all text-white cursor-pointer active:scale-95 shadow-lg"
-            title="Go Back"
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-          </button>
-          
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6">
-            {/* Artist Circular Portrait with Graceful Gradient Fallback */}
-            <div 
-              className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 rounded-full overflow-hidden shrink-0 border-4 border-white/20 shadow-2xl relative bg-gradient-to-tr from-purple-900 via-indigo-900 to-pink-900 flex items-center justify-center"
-              style={{ boxShadow: `0 12px 40px ${accentColor || '#ef4444'}40` }}
+      {/* ── Artist Header ──────────────────────────────────────────────────
+          No banner photograph and no surrounding card — just the artist. The back
+          button sits in the same band as the portrait rather than reserving a row
+          of its own, which is what pushed the name down the page. */}
+      <div className="px-6 sm:px-10 pt-2">
+        <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-7">
+          <div className="flex items-center shrink-0">
+            {/* Circular portrait */}
+            <div
+              className="w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden shrink-0 border relative flex items-center justify-center bg-white/5"
+              style={{ borderColor: 'var(--hairline-strong)', boxShadow: `0 16px 40px -16px ${accentColor || '#ef4444'}80` }}
             >
-              {artistHeaderArt ? (
-                <img 
-                  src={artistHeaderArt} 
-                  onLoad={onArtLoad}
-                  alt={artistDisplayName}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              ) : null}
-              <span className="text-3xl sm:text-5xl font-black text-white/60 absolute select-none pointer-events-none -z-10">
+              <span className="absolute text-4xl sm:text-5xl font-black text-white/40 select-none pointer-events-none">
                 {(artistDisplayName?.[0] || 'A').toUpperCase()}
               </span>
+              {artistHeaderArt ? (
+                <img
+                  src={artistHeaderArt}
+                  onLoad={onArtLoad}
+                  alt={artistDisplayName}
+                  className="relative w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                />
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15">
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                </svg>
+                Verified Artist
+              </span>
+              {artistSubs && (
+                <span className="text-xs text-white/50 font-medium">{artistSubs}</span>
+              )}
             </div>
 
-            <div className="flex-1 min-w-0">
-              {/* Verified Badge */}
-              <div className="flex items-center gap-2 mb-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15 backdrop-blur-md">
-                  <svg className="w-3 h-3 text-sky-400" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-                  </svg>
-                  Verified Artist
-                </span>
-                {artistSubs && (
-                  <span className="text-xs text-white/50 font-medium">
-                    {artistSubs}
-                  </span>
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none mb-3">
+              {artistDisplayName}
+            </h1>
+
+            {artistDesc && (
+              <div className="max-w-2xl mx-auto sm:mx-0">
+                <p className={`text-xs sm:text-sm text-white/70 leading-relaxed whitespace-pre-wrap ${isBioExpanded ? '' : 'line-clamp-2'}`}>
+                  {artistDesc}
+                </p>
+                {artistDesc.length > 140 && (
+                  <button
+                    onClick={() => setIsBioExpanded(!isBioExpanded)}
+                    className="text-xs font-bold text-white/90 hover:text-white mt-1 cursor-pointer underline underline-offset-2"
+                  >
+                    {isBioExpanded ? 'Show less' : 'Read more'}
+                  </button>
                 )}
               </div>
-
-              <h1 className="text-4xl sm:text-6xl md:text-7xl font-black text-white drop-shadow-xl tracking-tight leading-none mb-3">
-                {artistDisplayName}
-              </h1>
-
-              {artistDesc && (
-                <div className="mt-1 max-w-3xl">
-                  <p className={`text-xs sm:text-sm text-white/70 leading-relaxed whitespace-pre-wrap transition-all ${isBioExpanded ? '' : 'line-clamp-2'}`}>
-                    {artistDesc}
-                  </p>
-                  {artistDesc.length > 140 && (
-                    <button
-                      onClick={() => setIsBioExpanded(!isBioExpanded)}
-                      className="text-xs font-bold text-white/90 hover:text-white mt-1 cursor-pointer underline underline-offset-2"
-                    >
-                      {isBioExpanded ? 'Show less' : 'Read more'}
-                    </button>
-                  )}
-                </div>
-              )}
+            )}
 
               {/* Action Buttons */}
               <div className="flex items-center gap-3 mt-4">
@@ -828,8 +803,6 @@ export default function ArtistProfileView({
             </div>
           </div>
         </div>
-      </div>
-
       {/* Sections Container */}
       <div className="px-6 sm:px-10 flex flex-col gap-10 mt-6">
         
@@ -876,7 +849,7 @@ export default function ArtistProfileView({
                         {track.title}
                       </h4>
                       <p className="text-xs text-white/50 truncate mt-0.5">
-                        {track.artist || artistDisplayName}
+                        {track.album || track.artist || artistDisplayName}
                       </p>
                     </div>
                   </div>

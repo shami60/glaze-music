@@ -236,6 +236,13 @@ function AppShell() {
     navigateTo(pin.source === 'explore' ? 'streaming' : 'yt_streaming')
   }
   const [selectedArtistName, setSelectedArtistName] = useState(null)
+  // Mirrors of the two values the artist event listener needs. The listener is
+  // bound once with `[]` deps, so reading `activeView` / `selectedArtistName`
+  // straight from the closure would see their values at mount (null / 'home').
+  const activeViewRef = React.useRef(activeView)
+  const selectedArtistRef = React.useRef(null)
+  React.useEffect(() => { activeViewRef.current = activeView }, [activeView])
+  React.useEffect(() => { selectedArtistRef.current = selectedArtistName }, [selectedArtistName])
   const [isLyricsOverlay, setIsLyricsOverlay] = useState(false)
   const [isMiniPlayer, setIsMiniPlayer] = useState(false)
 
@@ -310,13 +317,17 @@ function AppShell() {
 
   const navigateBack = () => {
     setViewHistory(h => {
-      if (h.length === 0) {
-        setActiveView('home')
-        return h
-      }
       const newH = [...h]
-      const prev = newH.pop()
-      setActiveView(prev)
+      // Skip detail views. `artist_profile` needs the selection it was opened
+      // with, and that is not restored here, so landing on it showed whichever
+      // artist happened to still be selected — the "back takes me somewhere
+      // strange" report.
+      let prev
+      while (newH.length > 0) {
+        const candidate = newH.pop()
+        if (candidate && candidate !== 'artist_profile') { prev = candidate; break }
+      }
+      setActiveView(prev || 'home')
       return newH
     })
   }
@@ -333,30 +344,28 @@ function AppShell() {
 
   React.useEffect(() => {
     const handleOpenArtist = (e) => {
-      if (e.detail && e.detail !== 'Unknown Artist') {
-        const rawTarget = typeof e.detail === 'object' ? (e.detail.name || e.detail.title || e.detail.id) : e.detail
-        if (rawTarget && typeof rawTarget === 'string') {
-          const firstArtist = rawTarget.split(',')[0].trim()
-          if (firstArtist) {
-            setSelectedArtistName(prev => {
-              if (prev && prev.toLowerCase() !== firstArtist.toLowerCase()) {
-                setArtistHistory(h => [...h, prev])
-              }
-              return firstArtist
-            })
-            navigateTo('artist_profile')
-          }
-        } else if (rawTarget) {
-          const artStr = String(rawTarget)
-          setSelectedArtistName(prev => {
-            if (prev && prev.toLowerCase() !== artStr.toLowerCase()) {
-              setArtistHistory(h => [...h, prev])
-            }
-            return artStr
-          })
-          navigateTo('artist_profile')
+      if (!e.detail || e.detail === 'Unknown Artist') return
+      const rawTarget = typeof e.detail === 'object'
+        ? (e.detail.name || e.detail.title || e.detail.id)
+        : e.detail
+      if (rawTarget == null) return
+      const name = String(rawTarget).split(',')[0].trim()
+      if (!name) return
+
+      // Only a link followed from *inside* an artist page continues the chain.
+      // `selectedArtistName` deliberately survives after you leave the page, so
+      // opening an artist from a list used to push the previously-viewed artist
+      // onto the stack — back then went to an artist you never came from.
+      if (activeViewRef.current !== 'artist_profile') {
+        setArtistHistory([])
+      } else {
+        const prev = selectedArtistRef.current
+        if (prev && prev.toLowerCase() !== name.toLowerCase()) {
+          setArtistHistory(h => [...h, prev])
         }
       }
+      setSelectedArtistName(name)
+      navigateTo('artist_profile')
     }
     const handleOpenPlaylist = (e) => {
       if (e.detail) {
@@ -462,7 +471,15 @@ function AppShell() {
         if (window.electronAPI?.loadSessionState) {
           const sess = await window.electronAPI.loadSessionState()
           if (sess) {
-            if (sess.activeView) setActiveView(sess.activeView)
+            // Only restore a view that can stand on its own. A detail view needs the
+            // selection it was opened with, and that is not part of the saved session
+            // — restoring `artist_profile` mounted the page with no artist, whose
+            // fetch effect bails immediately, so it sat on "Loading…" until the user
+            // happened to navigate somewhere else. Land on the parent list instead.
+            const NEEDS_SELECTION = { artist_profile: 'artists' }
+            if (sess.activeView) {
+              setActiveView(NEEDS_SELECTION[sess.activeView] || sess.activeView)
+            }
             if (sess.viewHistory) setViewHistory(sess.viewHistory)
           }
         }

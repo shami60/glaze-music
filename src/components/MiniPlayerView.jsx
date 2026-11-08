@@ -13,21 +13,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { usePlayer, usePlaybackTime } from '../context/usePlayer'
 import { getArtURL, getHighQualityArtURL, formatTime } from '../utils'
 
-import { isRTL, parseLRC, translateLyrics, TRANSLATION_LANGUAGES } from '../lyricsUtils'
-
-// In-memory module-level cache for lyrics to avoid redundant network/IPC requests.
-// Capped: parsed synced lyrics are an array of timestamped lines (~10-20 KB per
-// track), so an uncapped map grows for as long as the app stays open. 60 tracks
-// is several hours of listening and still well under a megabyte.
-const LYRICS_CACHE_MAX = 60
-const lyricsMemoryCache = new Map()
-function cacheLyrics(key, value) {
-  lyricsMemoryCache.delete(key)
-  lyricsMemoryCache.set(key, value)
-  while (lyricsMemoryCache.size > LYRICS_CACHE_MAX) {
-    lyricsMemoryCache.delete(lyricsMemoryCache.keys().next().value)
-  }
-}
+import { isRTL, translateLyrics } from '../lyricsUtils'
+import { useLyrics } from '../hooks/useLyrics'
 
 // Fast binary search to find the active lyric timestamp
 function findActiveLyricIndex(lyricsArray, currentTime) {
@@ -105,8 +92,9 @@ export default function MiniPlayerView({
       setArtHeight(null)
     }
   }, [showLyrics])
-  const [lyricsData, setLyricsData] = useState({ type: null, data: null })
-  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false)
+  // One shared lyrics policy, same as the panel and the home card.
+  // Gated on showLyrics: the mini player is often open without the panel.
+  const { lyrics: lyricsData, isLoading: isLoadingLyrics } = useLyrics(showLyrics ? currentTrack : null)
   const [isSeeking, setIsSeeking] = useState(false)
   const [seekVal, setSeekVal] = useState(0)
 
@@ -184,61 +172,6 @@ export default function MiniPlayerView({
     })
   }, [])
 
-  // Fetch lyrics with in-memory caching for zero redundant overhead
-  useEffect(() => {
-    if (!showLyrics || !currentTrack) return
-
-    const trackKey = currentTrack.src || currentTrack.id
-    if (lyricsMemoryCache.has(trackKey)) {
-      setLyricsData(lyricsMemoryCache.get(trackKey))
-      setIsLoadingLyrics(false)
-      return
-    }
-
-    let active = true
-    async function fetchLyrics() {
-      setIsLoadingLyrics(true)
-      setLyricsData({ type: null, data: null })
-
-      let videoId = null
-      if (currentTrack.src?.startsWith('yt:')) {
-        videoId = currentTrack.src.replace('yt:', '')
-      } else if (currentTrack.src) {
-        const match = currentTrack.src.match(/\[([a-zA-Z0-9_-]{11})\]\.[^.]+$/)
-        if (match) videoId = match[1]
-      }
-
-      const title = currentTrack.title
-      const artist = currentTrack.artist
-
-      try {
-        if (window.electronAPI?.youtubeGetLyrics) {
-          const res = await window.electronAPI.youtubeGetLyrics(videoId, title, artist)
-          if (!active) return
-          let parsedResult = { type: 'none', data: 'Lyrics not available' }
-          if (res) {
-            if (res.type === 'synced') {
-              parsedResult = { type: 'synced', data: parseLRC(res.text) }
-            } else {
-              parsedResult = { type: 'plain', data: res.text }
-            }
-          }
-          cacheLyrics(trackKey, parsedResult)
-          setLyricsData(parsedResult)
-        }
-      } catch {
-        if (active) {
-          const errorResult = { type: 'none', data: 'No lyrics found' }
-          cacheLyrics(trackKey, errorResult)
-          setLyricsData(errorResult)
-        }
-      }
-      if (active) setIsLoadingLyrics(false)
-    }
-
-    fetchLyrics()
-    return () => { active = false }
-  }, [showLyrics, currentTrack?.src])
 
   // Translation effect for MiniPlayer
   useEffect(() => {

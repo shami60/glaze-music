@@ -97,8 +97,7 @@ function ShelfCarousel({ children, className = "" }) {
       {showLeft && (
         <button
           onClick={() => scroll('left')}
-          className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-[var(--surface-1)]/95 hover:bg-black text-white border border-white/25 shadow-[0_4px_25px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-center transition-all duration-200 opacity-90 hover:opacity-100 hover:scale-110 active:scale-95 cursor-pointer"
-          style={{ contain: 'strict', isolation: 'isolate' }}
+          className="absolute left-1 sm:left-2 inset-y-0 my-auto z-30 w-11 h-11 rounded-full lg-glass-btn text-white flex items-center justify-center cursor-pointer"
           title="Previous"
         >
           <svg className="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -116,8 +115,7 @@ function ShelfCarousel({ children, className = "" }) {
       {showRight && (
         <button
           onClick={() => scroll('right')}
-          className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-[var(--surface-1)]/95 hover:bg-black text-white border border-white/25 shadow-[0_4px_25px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-center transition-all duration-200 opacity-90 hover:opacity-100 hover:scale-110 active:scale-95 cursor-pointer"
-          style={{ contain: 'strict', isolation: 'isolate' }}
+          className="absolute right-1 sm:right-2 inset-y-0 my-auto z-30 w-11 h-11 rounded-full lg-glass-btn text-white flex items-center justify-center cursor-pointer"
           title="Next"
         >
           <svg className="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">

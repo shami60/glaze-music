@@ -7,21 +7,63 @@ import ContextMenu from './ContextMenu'
 import FancyUsername from './FancyUsername'
 
 // ── Mosaic Cover Art Component ────────────────────────────────────────────────
-function PlaylistCover({ files = [], size = 'md', className = '' }) {
+
+/**
+ * Reject artwork that cannot exist.
+ *
+ * A YouTube thumbnail URL is only real when the path segment is an 11-character
+ * video id. Imported tracks are keyed `yt:<title> <artist>`, and anything that
+ * derives a thumbnail from that key produces `i.ytimg.com/vi/Mukhlis%20Rap…`,
+ * which 404s and leaves a broken image. Metadata cached earlier in the session
+ * can still carry one of those, so the check belongs at render time too.
+ */
+function isUsableArt(url) {
+  if (!url || typeof url !== 'string') return false
+  const m = url.match(/i\.ytimg\.com\/vi\/([^/]+)\//)
+  if (m) {
+    try {
+      return /^[A-Za-z0-9_-]{11}$/.test(decodeURIComponent(m[1]))
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
+function PlaylistCover({ files = [], cover = null, meta = null, size = 'md', className = '' }) {
   const safeFiles = Array.isArray(files) ? files : []
   const uniqueArts = useMemo(() => {
     const arts = []
     const seen = new Set()
-    for (const f of safeFiles) {
-      const art = typeof f === 'object' ? (f.albumArt || f.thumbnail || getArtURL(f.src || f.id)) : getArtURL(f)
-      if (art && !seen.has(art)) {
+    const push = (art) => {
+      if (art && !seen.has(art) && arts.length < 4) {
         seen.add(art)
         arts.push(art)
-        if (arts.length >= 4) break
       }
     }
+    // An imported playlist carries its own artwork. The mosaic below can only
+    // build one from track art, and an imported track's `src` is a search key
+    // (`yt:<title> <artist>`), not a video id — so `getArtURL` returns nothing
+    // and the cover fell back to the grey placeholder even though the artwork
+    // had been stored all along.
+    push(cover)
+    for (const f of safeFiles) {
+      const src = typeof f === 'object' ? (f.src || f.id) : f
+      // `meta` is the playlist's own saved metadata. The collection grid passes
+      // raw `yt:` strings, so without this lookup its cards could never build a
+      // mosaic — which is why an imported playlist showed a placeholder there
+      // while the same playlist's detail header showed artwork.
+      const saved = meta && src ? meta[src] : null
+      const own = typeof f === 'object'
+        ? (f.albumArt || f.thumbnail || f.album_art)
+        : (saved && (saved.thumbnail || saved.albumArt))
+      const isYtSrc = String(src || '').startsWith('yt:')
+      const idOk = /^[A-Za-z0-9_-]{11}$/.test(String(src || '').slice(3))
+      // Same rule as the rows: only derive a YouTube thumbnail from a real id.
+      push(isUsableArt(own) ? own : (isYtSrc ? (idOk ? getArtURL(src) : null) : getArtURL(src)))
+    }
     return arts
-  }, [safeFiles])
+  }, [safeFiles, cover, meta])
 
   const sizeClasses = {
     sm: 'w-12 h-12 rounded-xl text-xs',
@@ -72,8 +114,8 @@ export default function PlaylistsView({
   refreshDownloads: propRefreshDownloads,
   userProfile
 }) {
-  const { replaceQueue, addToQueue, playNext, currentTrack, isPlaying, togglePlayPause, startRadio, accentColor = '#ef4444' } = usePlayer()
-  const { downloadedIds = new Set(), isDownloaded = () => false, refreshDownloads: libRefreshDownloads } = useLibrary() || {}
+  const { replaceQueue, addToQueue, playNext, currentTrack, isPlaying, togglePlayPause, startRadio, accentColor = '#ef4444', prefetchStreamUrl } = usePlayer()
+  const { downloadedIds = new Set(), isDownloaded = () => false, refreshDownloads: libRefreshDownloads, setPlaylistTrackVideoId } = useLibrary() || {}
 
   const [selectedId, setSelectedId] = useState(null)
   const [playlistSearch, setPlaylistSearch] = useState('')
@@ -114,8 +156,13 @@ export default function PlaylistsView({
     return filesList.map((f, idx) => {
       const src = typeof f === 'string' ? f : (f.src || f.id)
       const isYt = src.startsWith('yt:')
-      const videoId = isYt ? src.replace('yt:', '') : null
-      const meta = artCache?.[src] || localMeta[src] || (typeof f === 'object' ? f : {})
+      // Saved-with-the-playlist metadata wins: it is there on the first render,
+      // so imported playlists no longer open as a column of placeholders.
+      const meta = currentPlaylist.meta?.[src] || artCache?.[src] || localMeta[src] || (typeof f === 'object' ? f : {})
+      // An imported track is keyed `yt:<title> <artist>`. Once a download has
+      // resolved that key to a real id we keep it, so this track stops needing a
+      // search and `isDownloaded` can match the file on disk.
+      const videoId = isYt ? (meta.videoId || src.replace('yt:', '')) : null
       const filename = src.split(/[/\\]/).pop().replace(/\.[^/.]+$/, '')
       const isDown = isDownloaded(src)
 
@@ -126,7 +173,8 @@ export default function PlaylistsView({
         title: meta.title || (isYt ? 'Online Track' : filename),
         artist: meta.artist || meta.author || 'Unknown Artist',
         album: isDown ? 'Downloaded' : (meta.album || (isYt ? 'Single' : '')),
-        albumArt: meta.albumArt || meta.thumbnail || (isYt ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null),
+        albumArt: [meta.albumArt, meta.album_art, meta.thumbnail].find(isUsableArt)
+          || (isYt && videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null),
         duration: typeof meta.duration === 'object' ? (meta.duration?.seconds || 0) : (meta.duration || 0),
         source: isDown ? 'downloaded' : (isYt ? 'online' : 'local'),
         isDownloaded: isDown
@@ -268,7 +316,7 @@ export default function PlaylistsView({
               externalId: res.externalId
             })
           } else {
-            finishImport(res.tracks, res.name, { thumbnail: res.cover, externalId: res.externalId })
+            finishImport(res.tracks, res.name, { thumbnail: res.cover, externalId: res.externalId, meta: res.meta })
           }
         } else {
           alert(res?.error || 'Failed to import playlist. Please verify the URL is public and supported.')
@@ -291,7 +339,7 @@ export default function PlaylistsView({
       if (auth?.success) {
         const res = await window.electronAPI.importPlaylist(importNotice.url)
         if (res?.success && res.tracks?.length) {
-          finishImport(res.tracks, res.name, { thumbnail: res.cover, externalId: res.externalId })
+          finishImport(res.tracks, res.name, { thumbnail: res.cover, externalId: res.externalId, meta: res.meta })
           setIsImporting(false)
           return
         }
@@ -337,6 +385,13 @@ export default function PlaylistsView({
       const ok = !!res?.success
       onShowDownloadNotification?.(track, ok)
       if (ok) {
+        // Save the id that was actually downloaded. For an imported track this is
+        // the id resolved from the search key; without it the playlist keeps a key
+        // that can never match the file on disk, so the row never shows as
+        // downloaded and the same song gets downloaded again and again.
+        if (res?.videoId && res.videoId !== videoId && currentPlaylist?.id) {
+          setPlaylistTrackVideoId?.(currentPlaylist.id, track.src, res.videoId)
+        }
         await libRefreshDownloads?.()
         await propRefreshDownloads?.()
       }
@@ -666,7 +721,7 @@ export default function PlaylistsView({
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6">
             
             {/* Playlist Mosaic Cover */}
-            <PlaylistCover files={playlistTracks} size="lg" className="shadow-2xl shadow-black/60 border border-white/10" />
+            <PlaylistCover files={playlistTracks} cover={currentPlaylist.cover} meta={currentPlaylist.meta} size="lg" className="shadow-2xl shadow-black/60 border border-white/10" />
 
             {/* Info & Title */}
             <div className="flex-1 min-w-0 text-center sm:text-left">
@@ -852,7 +907,15 @@ export default function PlaylistsView({
                 filteredPlaylistTracks.map((track, idx) => {
                   const isCurrent = currentTrack?.src === track.src
                   const isTrackPlaying = isCurrent && isPlaying
-                  const art = track.albumArt || getArtURL(track.src)
+                  // Only build a YouTube thumbnail URL from a real 11-char id.
+                  // An imported track's "id" is `yt:<title> <artist>`, and
+                  // `getArtURL` turned that into a URL that always 404s — a
+                  // broken image instead of the placeholder.
+                  const hasRealVideoId = track.videoId && /^[A-Za-z0-9_-]{11}$/.test(track.videoId)
+                  const derivedArt = String(track.src || '').startsWith('yt:')
+                    ? (hasRealVideoId ? getArtURL(track.src) : null)
+                    : getArtURL(track.src)
+                  const art = isUsableArt(track.albumArt) ? track.albumArt : derivedArt
                   const isTrackDown = track.isDownloaded || isDownloaded(track.src)
 
                   return (
@@ -866,6 +929,7 @@ export default function PlaylistsView({
                         }
                       }}
                       onContextMenu={e => openTrackContextMenu(e, track)}
+                      onMouseEnter={() => prefetchStreamUrl?.(track)}
                       className={`grid grid-cols-[2.5rem_minmax(0,3.5fr)_minmax(0,2fr)_5.5rem_7rem] items-center px-4 py-2.5 rounded-2xl group transition-all duration-150 cursor-pointer ${
                         isCurrent 
                           ? 'bg-white/[0.08] border border-white/10' 
@@ -892,12 +956,22 @@ export default function PlaylistsView({
 
                       {/* Title & Artist */}
                       <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                        <img
-                          src={getSizedArtURL(art, 'thumb')}
-                          alt=""
-                          className="w-11 h-11 rounded-xl object-cover bg-white/5 shadow-md shrink-0"
-                          onError={e => { e.target.style.opacity = '0.5' }}
-                        />
+                        {art ? (
+                          <img
+                            src={getSizedArtURL(art, 'thumb')}
+                            alt=""
+                            className="w-11 h-11 rounded-xl object-cover bg-white/5 shadow-md shrink-0"
+                            onError={e => { e.target.style.opacity = '0.5' }}
+                          />
+                        ) : (
+                          // No artwork is honest: an empty <img src=""> resolves to
+                          // the page URL and paints a broken-image glyph.
+                          <div className="w-11 h-11 rounded-xl bg-white/5 shadow-md shrink-0 flex items-center justify-center text-white/25">
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                              <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>
+                            </svg>
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-bold truncate leading-tight ${isCurrent ? 'text-emerald-400' : 'text-white group-hover:text-white'}`}>
                             {track.title}
@@ -1153,14 +1227,30 @@ export default function PlaylistsView({
                 >
                   {/* Card Cover & Floating Play Button */}
                   <div className="relative mb-3.5">
-                    <PlaylistCover files={tracks} size="md" className="shadow-md group-hover:shadow-xl transition-all" />
+                    <PlaylistCover files={tracks} cover={pl.cover} meta={pl.meta} size="md" className="shadow-md group-hover:shadow-xl transition-all" />
                     
                     {/* Hover Play Button */}
                     <button
                       onClick={e => {
                         e.stopPropagation()
                         if (tracks.length > 0) {
-                          const mapped = tracks.map(f => typeof f === 'string' ? { src: f, id: f, title: f } : f)
+                          // Build real track objects from the playlist's saved
+                          // metadata. Mapping a raw `yt:<title> <artist>` key to
+                          // `{ title: f }` put the key itself in the dock, with no
+                          // artist and no artwork.
+                          const mapped = tracks.map(f => {
+                            const src = typeof f === 'string' ? f : (f.src || f.id)
+                            const m = pl.meta?.[src]
+                            return {
+                              src,
+                              id: src,
+                              title: m?.title || (typeof f === 'object' ? f.title : null) || src,
+                              artist: m?.artist || (typeof f === 'object' ? f.artist : null) || 'Unknown Artist',
+                              album: m?.album || null,
+                              duration: m?.duration || 0,
+                              albumArt: m?.thumbnail || null
+                            }
+                          })
                           replaceQueue(mapped, 0)
                         }
                       }}

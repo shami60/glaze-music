@@ -2445,9 +2445,27 @@ ipcMain.handle('youtube:downloadTrack', async (_event, videoId, customFolder) =>
       return { success: false, error: 'Downloader component missing' }
     }
     
-    const cleanVideoId = safeMediaId(videoId) || ''
+    // Imported tracks are keyed `yt:<title> <artist>` — a search key, not a video
+    // id — so `safeMediaId` rejected them outright and every download from an
+    // imported playlist failed with "Invalid video ID". Resolve the key to a real
+    // id the same way playback does, then validate the *result* before it reaches
+    // the output template.
+    let cleanVideoId = safeMediaId(videoId)
     if (!cleanVideoId) {
-      return { success: false, error: 'Invalid video ID' }
+      const query = typeof videoId === 'string' ? videoId.replace(/^yt:/, '').trim() : ''
+      if (query.length < 2) {
+        return { success: false, error: 'Invalid video ID' }
+      }
+      try {
+        const yt = await initYouTubeI()
+        const sRes = yt ? await yt.music.search(query, { type: 'song' }).catch(() => null) : null
+        const items = sRes?.contents?.find(c => c.type === 'MusicShelf')?.contents || sRes?.contents || []
+        const top = items.find(i => i.id && /^[A-Za-z0-9_-]{11}$/.test(i.id))
+        if (top) cleanVideoId = top.id
+      } catch (_) {}
+      if (!cleanVideoId) {
+        return { success: false, error: `Could not find "${query}" on YouTube` }
+      }
     }
 
     // Refuse to create or write into a directory the user has not authorised.
@@ -2588,7 +2606,10 @@ ipcMain.handle('youtube:downloadTrack', async (_event, videoId, customFolder) =>
             })
           }
 
-          resolve({ success: true, filePath: downloadedFile, message: `Saved to ${baseDir}` })
+          // `videoId` is the id actually downloaded. For an imported track it is
+          // the id we resolved from the search key, and the renderer saves it back
+          // onto the playlist so the track stops needing a lookup at all.
+          resolve({ success: true, videoId: cleanVideoId, filePath: downloadedFile, message: `Saved to ${baseDir}` })
         } else {
           console.error('Download failed', errorOut)
           resolve({ success: false, error: errorOut || 'Download failed' })
@@ -2687,19 +2708,38 @@ ipcMain.handle('file:getDefaultDownloadFolder', () => {
 })
 
 // ─── Lyrics ──────────────────────────────────────────────────────────────────
-// Lyrics never change for a given track, so the whole lookup is cached. Without
-// this every re-open of the lyrics panel paid the full network cost again.
-// Keyed by video id when we have one, otherwise title+artist.
+// Lyrics never change for a given track, so a successful lookup is cached.
+// Keyed by video id when we have a real one, otherwise title+artist.
+//
+// The hard part is not the happy path, it is telling "this track has no lyrics"
+// apart from "the service did not answer". Both used to collapse into `null`,
+// and `null` was cached for five minutes — so one slow second on lrclib pinned
+// the track to "Lyrics not available" until the TTL ran out, and the same track
+// could look synced, static or missing on three different opens. Measured on
+// 2026-11-08: the identical lrclib query returned in 224 ms and in 32 s (HTTP
+// 522), so a 5 s timeout guarantees intermittent losses.
 const LYRICS_CACHE_MAX = 200
-// Only a synced result is final. A plain or missing result may just mean lrclib
-// timed out or was briefly unavailable, so caching it forever would pin that
-// track to non-animated lyrics for the rest of the session — which is exactly
-// what happened before this TTL was added.
+// A verified miss: every source answered and none had anything.
 const LYRICS_MISS_TTL_MS = 5 * 60 * 1000
+// Static text. Longer than a miss because it is real content, shorter than
+// forever because a synced sheet for the same track may still be out there.
+const LYRICS_PLAIN_TTL_MS = 10 * 60 * 1000
+// Static text we only got because a source failed. Cache it just long enough to
+// stop a hammering loop, then let the next open try again for a synced sheet.
+const LYRICS_PLAIN_DEGRADED_TTL_MS = 60 * 1000
+// lrclib's worst observed response is ~32 s, but nobody will stare at a spinner
+// that long: the panel gets a short interactive budget and retries instead.
+const LYRICS_LRCLIB_TIMEOUT_MS = 12000
+const LYRICS_YOUTUBE_TIMEOUT_MS = 8000
+const LYRICS_INTERACTIVE_BUDGET_MS = 6000
+// How long a plain-text result waits for a synced one before being shown. Long
+// enough for a normal lrclib round trip, short enough not to be felt.
+const LYRICS_PLAIN_GRACE_MS = 1500
+
 const lyricsCache = new Map()
-function cacheLyrics(key, value) {
+function cacheLyrics(key, value, ttl) {
   lyricsCache.delete(key)
-  lyricsCache.set(key, { value, at: Date.now() })
+  lyricsCache.set(key, { value, at: Date.now(), ttl })
   while (lyricsCache.size > LYRICS_CACHE_MAX) {
     lyricsCache.delete(lyricsCache.keys().next().value)
   }
@@ -2707,72 +2747,337 @@ function cacheLyrics(key, value) {
 function readLyricsCache(key) {
   const hit = lyricsCache.get(key)
   if (!hit) return undefined
-  const final = hit.value && hit.value.type === 'synced'
-  if (!final && Date.now() - hit.at > LYRICS_MISS_TTL_MS) {
+  if (hit.ttl !== Infinity && Date.now() - hit.at > hit.ttl) {
     lyricsCache.delete(key)
     return undefined
   }
   return hit.value
 }
 
-// lrclib.net regularly takes several seconds — one measured request went from
-// 0.9s to 6.7s on a repeat — so a hung request must not hold the panel hostage.
-// On timeout we fall through to the next source instead of waiting.
+// Must match `isVideoId` in src/lyricsUtils.js. A YouTube id is exactly 11
+// characters; `yt:<title> <artist>` (how Spotify imports are keyed) is not one,
+// and asking YouTube for the lyrics of "Kill Bill SZA" only ever failed.
+function isVideoId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{11}$/.test(value.trim())
+}
+
+// The timer used to outlive the race, leaving a pending timeout behind on every
+// call that finished early.
 function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
-  ])
+  let timer
+  const guard = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, guard]).finally(() => clearTimeout(timer))
+}
+
+function normaliseForMatch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\((?:feat|ft|with)\.?[^)]*\)/g, ' ')
+    .replace(/\[(?:feat|ft|with)\.?[^\]]*\]/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+}
+
+// Returns { type, text } | null, where null means "lrclib definitively has
+// nothing for this track". Throws for anything that is the service's fault, so
+// the caller can avoid caching a transient failure as an answer.
+//
+// Retried once on purpose. lrclib's origin is cold on the first hit for a given
+// query: measured 2026-11-08, the same search returned in 21 s (Cloudflare 522),
+// then 221 ms, then 215 ms — and another query went 4.5 s (aborted) → 3.2 s →
+// 215 ms. One retry converts most of those hangs into an answer, which is worth
+// far more than a longer timeout, because the second attempt is the fast one.
+const LRCLIB_ATTEMPT_TIMEOUT_MS = 4500
+const LRCLIB_ATTEMPTS = 2
+// Testing hook, same idea as GLAZE_UPDATE_URL: point the lyrics source at a
+// local server to exercise the slow and failing paths deterministically.
+const LRCLIB_BASE = process.env.GLAZE_LYRICS_BASE || 'https://lrclib.net'
+
+// A local filename carries decoration a lyrics database does not: a leading
+// track number, a "- Slowed Down" suffix, a "(From "…")" credit. None of it
+// helps the search, and enough of it makes the query miss entirely — which is
+// how a track with a perfectly good synced sheet on lrclib ended up showing
+// static text.
+function cleanSearchTitle(title) {
+  return String(title || '')
+    .replace(/^\s*\d{1,3}\s*[-–.)]\s*/, '')
+    .replace(
+      /\s*[([][^)\]]*\b(?:from|official|lyrics?|audio|video|mv|visuali[sz]er|remix|slowed|sped\s*up|nightcore|remaster(?:ed)?|feat|ft|with)\b[^)\]]*[)\]]/gi,
+      ' '
+    )
+    .replace(
+      /\s+[-–]\s+[^-–]*\b(?:remix|remaster(?:ed)?|slowed|sped\s*up|nightcore|live|acoustic|edit|version)\b[^-–]*$/gi,
+      ''
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// The raw title first, then the stripped one. Only tried when the first spelling
+// comes back empty — never when the request itself failed.
+function buildLrclibQueries(title, artist) {
+  const queries = [{ title, artist }]
+  const cleaned = cleanSearchTitle(title)
+  if (cleaned && cleaned.toLowerCase() !== String(title || '').trim().toLowerCase()) {
+    queries.push({ title: cleaned, artist })
+  }
+  return queries
+}
+
+async function lrclibSearch({ title, artist }) {
+  const url = `${LRCLIB_BASE}/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), LRCLIB_ATTEMPT_TIMEOUT_MS)
+  try {
+    const res = await net.fetch(url, {
+      headers: { 'User-Agent': 'GlazeMusic/1.0' },
+      signal: controller.signal,
+    })
+    // 404 is the only "not here" answer. 429 and 5xx — including the Cloudflare
+    // 522 we get under load — mean the service is unavailable, not that the
+    // track is lyric-less. Treating them as empty is what produced the false
+    // "Lyrics not available".
+    if (res.status === 404) return []
+    if (!res.ok) throw new Error(`lrclib HTTP ${res.status}`)
+    try {
+      return await res.json()
+    } catch {
+      // A 200 carrying an HTML error page is still a failure, not an empty result.
+      throw new Error('lrclib returned a non-JSON body')
+    }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function fetchLrclibLyrics(title, artist) {
-  const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`
-  const res = await net.fetch(url, { headers: { 'User-Agent': 'GlazeMusic/1.0' } })
-  if (!res.ok) return null
-  const data = await res.json()
-  const synced = Array.isArray(data) ? data.find((d) => d && d.syncedLyrics) : null
-  return synced ? { type: 'synced', text: synced.syncedLyrics } : null
+  let lastError = null
+
+  for (const query of buildLrclibQueries(title, artist)) {
+    for (let attempt = 1; attempt <= LRCLIB_ATTEMPTS; attempt++) {
+      try {
+        const data = await lrclibSearch(query)
+        const picked = pickLrclibMatch(data, query.title, query.artist)
+        if (picked) return picked
+        // The service answered and had nothing: try the next spelling.
+        lastError = null
+        break
+      } catch (err) {
+        lastError = err
+        log.debug(`[Lyrics] lrclib attempt ${attempt}/${LRCLIB_ATTEMPTS} failed (${query.title}): ${err.message}`)
+        if (attempt < LRCLIB_ATTEMPTS) await new Promise((r) => setTimeout(r, 250))
+      }
+    }
+    // Still failing after the retry means the service is down, not that this
+    // spelling was wrong — another candidate would only fail again, slowly.
+    if (lastError) break
+  }
+
+  if (lastError) throw lastError
+  return null
+}
+
+function pickLrclibMatch(data, title, artist) {
+  if (!Array.isArray(data) || data.length === 0) return null
+
+  // A search returns up to 20 versions of the same title. Taking the first one
+  // with syncedLyrics could hand back a remix, a cover, or a different artist's
+  // song; score them so the best match wins.
+  const wantTitle = normaliseForMatch(title)
+  const wantArtist = normaliseForMatch(artist)
+  const scored = data
+    .map((d) => {
+      if (!d || typeof d !== 'object') return { d, score: -99 }
+      const t = normaliseForMatch(d.trackName)
+      const a = normaliseForMatch(d.artistName)
+      let score = 0
+      if (t && t === wantTitle) score += 4
+      else if (t && wantTitle && (t.includes(wantTitle) || wantTitle.includes(t))) score += 2
+      if (a && a === wantArtist) score += 2
+      else if (a && wantArtist && (a.includes(wantArtist) || wantArtist.includes(a))) score += 1
+      if (d.syncedLyrics) score += 3
+      else if (d.plainLyrics) score += 1
+      if (d.instrumental) score -= 4
+      return { d, score }
+    })
+    .sort((x, y) => y.score - x.score)
+
+  const pick = scored[0]?.d
+  if (!pick || scored[0].score < 0) return null
+  if (pick.syncedLyrics) return { type: 'synced', text: pick.syncedLyrics }
+  // lrclib often has plain lyrics without timings. Throwing them away used to
+  // fall through to YouTube's worse copy for no reason.
+  if (pick.plainLyrics) return { type: 'plain', text: pick.plainLyrics }
+  return null
 }
 
 async function fetchYouTubeLyrics(videoId) {
   const yt = await initYouTubeI()
-  if (!yt) return null
-  const lyrics = await yt.music.getLyrics(videoId)
-  if (lyrics && lyrics.description?.text) return { type: 'plain', text: lyrics.description.text }
-  return null
+  if (!yt) throw new Error('youtubei unavailable')
+  let lyrics
+  try {
+    lyrics = await yt.music.getLyrics(videoId)
+  } catch (err) {
+    // Innertube reports "this video has no lyrics" as a thrown error. That is a
+    // definitive answer, not a failure — otherwise such tracks never cache and
+    // re-query on every open.
+    if (/no lyrics|lyrics not found|unavailable/i.test(err?.message || '')) return null
+    throw err
+  }
+  const text = lyrics?.description?.text
+  return text ? { type: 'plain', text } : null
+}
+
+// One lookup per cache key, shared by every caller while it runs.
+const lyricsInFlight = new Map()
+
+function startLyricsLookup(key, { videoId, title, artist }) {
+  const sources = []
+  // Both start together: when lrclib has nothing, waiting for it to say so
+  // before asking YouTube doubled the wait for the slowest tracks.
+  if (title && artist) {
+    sources.push({ name: 'lrclib', timeout: LYRICS_LRCLIB_TIMEOUT_MS, run: () => fetchLrclibLyrics(title, artist) })
+  }
+  if (isVideoId(videoId)) {
+    sources.push({ name: 'youtube', timeout: LYRICS_YOUTUBE_TIMEOUT_MS, run: () => fetchYouTubeLyrics(videoId) })
+  }
+
+  const state = { best: null, answered: 0, failed: 0, settled: 0 }
+
+  // Decide what this outcome is worth remembering and write it. Called once when
+  // the panel is handed an answer and again if a source later improves on it.
+  const writeCache = () => {
+    let ttl
+    if (state.best?.type === 'synced') ttl = Infinity
+    else if (state.best) ttl = state.failed > 0 ? LYRICS_PLAIN_DEGRADED_TTL_MS : LYRICS_PLAIN_TTL_MS
+    // Verified empty only when nobody failed. A miss produced by a timeout is
+    // not knowledge, so it is never cached.
+    else if (state.answered > 0 && state.failed === 0) ttl = LYRICS_MISS_TTL_MS
+    else ttl = 0
+
+    if (ttl > 0) cacheLyrics(key, state.best, ttl)
+    // A lookup where every source failed is the only case worth writing to disk:
+    // it is what a user reports as "lyrics are broken", and it leaves no other
+    // trace in a packaged build.
+    if (ttl === 0 && state.best === null) {
+      log.warn(`[Lyrics] ${key} unavailable — every source failed (answered=${state.answered} failed=${state.failed})`)
+    } else {
+      log.debug(`[Lyrics] ${key} → ${state.best ? state.best.type : 'none'} (answered=${state.answered} failed=${state.failed} ttl=${ttl})`)
+    }
+  }
+
+  return new Promise((resolve) => {
+    let handedOver = false
+    let graceTimer = null
+
+    const handOver = (provisional) => {
+      if (handedOver) return
+      handedOver = true
+      if (graceTimer) {
+        clearTimeout(graceTimer)
+        graceTimer = null
+      }
+      writeCache()
+      resolve({ value: state.best, degraded: state.failed > 0, provisional })
+    }
+
+    if (sources.length === 0) {
+      handOver(false)
+      return
+    }
+
+    for (const src of sources) {
+      withTimeout(src.run(), src.timeout, src.name)
+        .then((out) => {
+          if (!out) {
+            state.answered += 1
+            return
+          }
+          if (out.type === 'synced') {
+            // Counted as an answer: a synced sheet ends the wait immediately, so
+            // without this the log read `synced (answered=0 failed=0)`, which
+            // looks like nothing had replied.
+            state.answered += 1
+            state.best = out
+            return
+          }
+          if (state.best) return
+          state.best = out
+          // Plain text is worth showing immediately — but not at the cost of
+          // waiting out a slow lrclib first, and not so eagerly that a synced
+          // sheet arriving 300 ms later is missed. A short grace period gets
+          // both: the panel fills as soon as it plausibly can, and the cache is
+          // upgraded in the background if a synced sheet turns up afterwards.
+          if (!handedOver) {
+            graceTimer = setTimeout(() => handOver(true), LYRICS_PLAIN_GRACE_MS)
+          }
+        })
+        .catch((err) => {
+          state.failed += 1
+          log.debug(`[Lyrics] ${src.name} failed: ${err.message}`)
+        })
+        .finally(() => {
+          state.settled += 1
+          const last = state.settled === sources.length
+          // A synced sheet ends the wait — the other source can only be worse.
+          if (state.best?.type === 'synced' || last) {
+            if (handedOver) {
+              // The panel already has an answer; this only refreshes the cache
+              // so the next open gets the better one.
+              if (last) writeCache()
+            } else {
+              handOver(false)
+            }
+          }
+        })
+    }
+  })
 }
 
 ipcMain.handle('youtube:getLyrics', async (_event, videoId, title, artist) => {
-  const key = videoId && typeof videoId === 'string' && videoId.length > 0
-    ? `v:${videoId}`
-    : `t:${(title || '').toLowerCase()}|${(artist || '').toLowerCase()}`
+  const id = isVideoId(videoId) ? videoId.trim() : null
+  const key = id
+    ? `v:${id}`
+    : `t:${(title || '').toLowerCase().trim()}|${(artist || '').toLowerCase().trim()}`
 
   const cached = readLyricsCache(key)
   if (cached !== undefined) return cached
 
-  const attempts = []
-  // Both sources are started together rather than one after the other: when
-  // lrclib has nothing, waiting for it to say so before asking YouTube doubled
-  // the wait for exactly the tracks that were already slowest.
-  if (title && artist) {
-    attempts.push(withTimeout(fetchLrclibLyrics(title, artist), 5000, 'lrclib'))
-  }
-  if (videoId && typeof videoId === 'string' && videoId.length > 0) {
-    attempts.push(withTimeout(fetchYouTubeLyrics(videoId), 6000, 'youtube'))
-  }
-
-  let best = null
-  for (const settled of await Promise.allSettled(attempts)) {
-    if (settled.status !== 'fulfilled' || !settled.value) continue
-    // Synced beats plain, whichever arrived first.
-    if (settled.value.type === 'synced') { best = settled.value; break }
-    if (!best) best = settled.value
+  let job = lyricsInFlight.get(key)
+  // A second call for the same track is a retry: it waits for the real answer
+  // rather than burning another interactive budget.
+  const joining = Boolean(job)
+  if (!job) {
+    job = startLyricsLookup(key, { videoId: id, title, artist })
+    const tracked = job.finally(() => {
+      if (lyricsInFlight.get(key) === tracked) lyricsInFlight.delete(key)
+    })
+    lyricsInFlight.set(key, tracked)
+    job = tracked
   }
 
-  // Cache the negative result too — a track with no lyrics should not be
-  // re-queried every time it is opened.
-  cacheLyrics(key, best)
-  return best
+  // `null` means one of two very different things, and the renderer must not be
+  // told they are the same: a verified "this track has no lyrics", or a lookup
+  // where every source failed. Only the first is an answer.
+  const toWire = (outcome) => {
+    if (!outcome) return null
+    if (outcome.value === null && outcome.degraded) return { retryable: true }
+    return outcome.value
+  }
+
+  if (joining) return toWire(await job)
+
+  // Never leave the panel on a spinner for twelve seconds. Hand back a
+  // retryable "not yet" and let the renderer come back — by then the job is
+  // either done (cache hit) or still running (this call joins it).
+  const raced = await Promise.race([
+    job,
+    new Promise((resolve) => setTimeout(() => resolve(null), LYRICS_INTERACTIVE_BUDGET_MS)),
+  ])
+  if (raced === null) return { retryable: true }
+  return toWire(raced)
 })
 
 // In-memory cache for translated lyrics in main process.
@@ -3899,11 +4204,61 @@ function calculateStreamExpiry(url) {
 }
 
 function setCachedStreamUrl(videoId, data) {
-  if (streamUrlMemoryCache.size >= 50) {
+  if (streamUrlMemoryCache.size >= 200) {
     const oldestKey = streamUrlMemoryCache.keys().next().value
     if (oldestKey) streamUrlMemoryCache.delete(oldestKey)
   }
   streamUrlMemoryCache.set(videoId, data)
+  scheduleStreamCacheSave()
+}
+
+// ── Stream URL cache persistence ─────────────────────────────────────────────
+// Resolving a URL is the entire wait: measured 3.4 s cold through yt-dlp versus
+// 27 ms once cached, while the media itself loads in ~100 ms. Keeping the cache
+// in memory only meant every relaunch paid that 3.4 s again for tracks the user
+// plays every day. The entries carry their own `expireAt` (the CDN's own cutoff,
+// minus a margin), so a stale one is simply dropped on load.
+const STREAM_CACHE_FILE = () => path.join(app.getPath('userData'), 'stream-url-cache.json')
+
+function loadStreamCacheFromDisk() {
+  try {
+    const file = STREAM_CACHE_FILE()
+    if (!fs.existsSync(file)) return
+    const rows = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (!Array.isArray(rows)) return
+    const now = Date.now()
+    for (const row of rows) {
+      if (!row || !row.key || typeof row.url !== 'string') continue
+      if (!(row.expireAt > now + 30000)) continue
+      streamUrlMemoryCache.set(row.key, { url: row.url, expireAt: row.expireAt, info: row.info || null })
+    }
+    if (streamUrlMemoryCache.size) {
+      logDebug(`[StreamUrl] restored ${streamUrlMemoryCache.size} cached URLs from disk`)
+    }
+  } catch (e) {
+    logDebug(`[StreamUrl] cache restore failed: ${e.message}`)
+  }
+}
+
+let streamCacheSaveTimer = null
+function scheduleStreamCacheSave() {
+  if (streamCacheSaveTimer) return
+  streamCacheSaveTimer = setTimeout(() => {
+    streamCacheSaveTimer = null
+    try {
+      const now = Date.now()
+      const rows = []
+      for (const [key, v] of streamUrlMemoryCache) {
+        if (v && typeof v.url === 'string' && v.expireAt > now) {
+          rows.push({ key, url: v.url, expireAt: v.expireAt, info: v.info || null })
+        }
+      }
+      fs.writeFileSync(STREAM_CACHE_FILE(), JSON.stringify(rows), 'utf8')
+    } catch {
+      /* a cache that cannot be written is not worth failing over */
+    }
+  }, 1500)
+  if (streamCacheSaveTimer.unref) streamCacheSaveTimer.unref()
 }
 
 // ─── Streaming quality ────────────────────────────────────────────────────────
@@ -4032,15 +4387,53 @@ function resolveBestAudioWithYtDlp(videoId) {
   })
 }
 
-ipcMain.handle('youtube:getStreamUrl', async (_event, videoId) => {
+/**
+ * Cheap proof that a resolved media URL can actually be read.
+ *
+ * Two bytes, range request, short timeout. A URL is only usable when it answers
+ * 200/206 **and** carries `Access-Control-Allow-Origin` — the player always sets
+ * `audio.crossOrigin = 'anonymous'` (the WebAudio graph needs it), so a response
+ * without that header is refused by the element with MEDIA_ERR_SRC_NOT_SUPPORTED
+ * no matter how good the URL looks. YouTube's IOS client currently returns
+ * exactly such URLs: 206, no ACAO, and every track routed through it dies
+ * silently. Checking for it here is the difference between "dead track" and
+ * "try the next client".
+ */
+async function isStreamUrlUsable(url) {
+  if (!url || typeof url !== 'string') return false
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 4000)
+  try {
+    const res = await net.fetch(url, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-1' },
+      signal: controller.signal
+    })
+    if (!(res.ok || res.status === 206)) return false
+    return !!res.headers.get('access-control-allow-origin')
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
   if (!videoId) return null
+
+  // Set by the renderer when a media element refused the previous URL. Skips
+  // every Innertube client and goes straight to yt-dlp, whose URLs are the ones
+  // the element has been proven to accept.
+  const forceDirect = !!opts?.forceDirect
 
   const cleanVideoId = typeof videoId === 'string' ? videoId.replace(/^yt:/, '').trim() : ''
   if (!cleanVideoId) return null
 
   // 1. Fast in-memory cache check (0ms)
+  // A forced-direct retry must not be answered from a cache that may hold the
+  // very URL the element just rejected.
   const cached = streamUrlMemoryCache.get(streamCacheKey(cleanVideoId))
-  if (cached && cached.url && cached.expireAt > Date.now()) {
+  if (!forceDirect && cached && cached.url && cached.expireAt > Date.now()) {
     logDebug(`[StreamUrl] Returning cached URL for ${cleanVideoId} (${streamQuality})`)
     if (cached.info) emitStreamInfo(cleanVideoId, cached.info)
     return cached.url
@@ -4075,8 +4468,13 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId) => {
     const isTargetValid = /^[a-zA-Z0-9_-]{11}$/.test(targetVid)
 
     // Top tier goes through yt-dlp (see the note on resolveBestAudioWithYtDlp).
-    if (streamQuality === 'high' && isStandardYtId) {
-      const best = await resolveBestAudioWithYtDlp(cleanVideoId)
+    //
+    // Gated on the *resolved* id, not on whether the caller passed a real one.
+    // Spotify imports key their tracks as `yt:<title> <artist>`, so the id only
+    // becomes valid after the search above — and gating on `isStandardYtId` sent
+    // every imported track down the Innertube path instead, where it died.
+    if (isTargetValid && (streamQuality === 'high' || forceDirect)) {
+      const best = await resolveBestAudioWithYtDlp(targetVid)
       if (best) {
         const info = {
           itag: best.itag,
@@ -4097,7 +4495,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId) => {
       }
     }
 
-    if (yt && isTargetValid) {
+    if (yt && isTargetValid && !forceDirect) {
       // IOS first, and this matters more than it looks. ANDROID_VR returns a
       // slightly better Opus rendition, but its URLs are throttled by the CDN:
       // a fresh one refuses any range past ~1 MB, so playback stalls part-way
@@ -4120,6 +4518,15 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId) => {
             pickFormatByQuality(streamingData.formats, 'high') // muxed fallback: best only
 
           if (chosen && chosen.url) {
+            // A URL is not proof it plays. YouTube has shipped client configs
+            // whose URLs answer 403 or return no media, and the renderer only
+            // finds out by handing it to an <audio> element — which then fails
+            // with MEDIA_ERR_SRC_NOT_SUPPORTED and the track dies silently.
+            // One ranged request settles it in ~100 ms, and the answer is cached.
+            if (!(await isStreamUrlUsable(chosen.url))) {
+              logDebug(`[StreamUrl] ${client} returned an unusable URL, trying the next client`)
+              continue
+            }
             const info = { ...describeFormat(chosen), source: isAdaptive ? 'adaptive' : 'progressive' }
             // IOS URLs are directly playable and seekable; no proxy hop.
             const playableUrl = chosen.url
@@ -4421,6 +4828,8 @@ app.whenReady().then(async () => {
   // Seed the media allow-list from saved preferences + the default download dir
   seedAllowedRootsFromPrefs()
   db.pruneStaleData()
+  // Warm the stream-URL cache so a track played yesterday is instant today.
+  loadStreamCacheFromDisk()
 
   // ── Permission hardening ──────────────────────────────────────────────────
   // Electron grants permission requests by default, so a renderer that ever got
@@ -4851,13 +5260,10 @@ function initDiscordRPC() {
       rpcConnected = true
       if (rpcRetryTimer) { clearTimeout(rpcRetryTimer); rpcRetryTimer = null }
       log.debug('Discord RPC connected')
-      discordRPC.setActivity({
-        details: 'Idle',
-        state: 'Glaze Music',
-        largeImageKey: DISCORD_ASSETS.app,
-        largeImageText: 'Glaze Music',
-        instance: false,
-      }).catch(() => {})
+      // Re-push whatever the app last reported: nothing playing clears the card
+      // (and drops one left behind by a killed session), while a track that is
+      // still playing gets its presence back after a Discord restart.
+      pushDiscordPresence(lastPresenceData)
     })
 
     discordRPC.on('disconnected', () => {
@@ -4886,28 +5292,31 @@ function initDiscordRPC() {
   }
 }
 
-ipcMain.handle('discord:updatePresence', (_event, data) => {
-  // NOTE: the Windows thumbnail toolbar is updated by its own `thumbar:update`
-  // channel. It used to be driven from here too, which meant every play/pause
-  // rebuilt three nativeImages twice, and only ever worked when Discord was up.
+// Presence exists only while a track is actually playing. A paused card — even
+// one carrying the artwork and a "paused at 1:23" subtitle — is still an activity
+// sitting on the profile, so a pause clears it outright rather than downgrading
+// it. Enforced here rather than only in the renderer, so the rule holds whoever
+// calls this channel.
+//
+// `lastPresenceData` is kept so the card can be rebuilt if Discord reconnects
+// mid-song. Clearing unconditionally on connect (the obvious reading of "no idle
+// presence") would wipe the activity of a track that is still playing, and
+// nothing would re-push it until the next play/pause.
+let lastPresenceData = null
+
+function pushDiscordPresence(data) {
   if (!discordRPC || !rpcConnected) return
   try {
+    if (!data || !data.isPlaying) {
+      discordRPC.clearActivity().catch(() => {})
+      return
+    }
+
     // Discord proxies the image itself, so it must be a real http(s) URL. Local
     // covers (art://, media://, file://) cannot be fetched and would render as a
     // broken placeholder, so those fall back to the uploaded app icon.
     const remoteArt = typeof data.art === 'string' && /^https?:\/\//i.test(data.art) ? data.art : DISCORD_ASSETS.app
-
-    // Discord derives a progress bar from timestamps and keeps advancing it, so a
-    // paused track cannot keep a frozen bar — it would lie. The position goes in
-    // the subtitle instead, which is static and exact.
-    const mmss = (secs) => {
-      const s = Math.max(0, Math.floor(secs || 0))
-      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-    }
-    const paused = !data.isPlaying && (data.currentTime || 0) > 0
-    const subtitle = data.artist
-      ? (paused ? `by ${data.artist} · paused at ${mmss(data.currentTime)}` : `by ${data.artist}`)
-      : 'Listening'
+    const subtitle = data.artist ? `by ${data.artist}` : 'Listening'
 
     const activity = {
       details: data.title || 'Unknown Track',
@@ -4917,11 +5326,11 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
       // is set in the request interceptor below. Discord links the image's text
       // through the same URL — verified on screen, not assumed.
       largeImageText: 'Click Here To Get Glaze Music',
-      smallImageKey: data.isPlaying ? DISCORD_ASSETS.play : DISCORD_ASSETS.pause,
-      smallImageText: data.isPlaying ? 'Playing' : 'Paused',
+      smallImageKey: DISCORD_ASSETS.play,
+      smallImageText: 'Playing',
       instance: false,
     }
-    if (data.isPlaying && data.duration > 0) {
+    if (data.duration > 0) {
       activity.startTimestamp = Math.floor(Date.now() / 1000) - Math.floor(data.currentTime || 0)
       activity.endTimestamp = Math.floor(Date.now() / 1000) + Math.floor(data.duration - (data.currentTime || 0))
     }
@@ -4941,6 +5350,14 @@ ipcMain.handle('discord:updatePresence', (_event, data) => {
   } catch (err) {
     console.warn('Discord RPC update failed:', err.message)
   }
+}
+
+ipcMain.handle('discord:updatePresence', (_event, data) => {
+  // NOTE: the Windows thumbnail toolbar is updated by its own `thumbar:update`
+  // channel. It used to be driven from here too, which meant every play/pause
+  // rebuilt three nativeImages twice, and only ever worked when Discord was up.
+  lastPresenceData = data || null
+  pushDiscordPresence(lastPresenceData)
 })
 
 ipcMain.handle('discord:clearPresence', () => {
@@ -5100,6 +5517,22 @@ ipcMain.handle('importPlaylist', async (event, urlStr) => {
     let spotifyCover = null
     let spotifyExternalId = null
 
+    // Per-track metadata, returned with the playlist so the renderer can paint
+    // names, artists and artwork straight away. Without it a playlist opens with
+    // placeholder rows and fills in a beat later, once the DB round-trip lands —
+    // which is what made imports feel like a different kind of playlist.
+    const importedMeta = {}
+    const rememberMeta = (src, meta) => {
+      importedMeta[src] = {
+        title: meta.title || null,
+        artist: meta.artist || null,
+        album: meta.album || null,
+        duration: typeof meta.duration === 'object' ? (meta.duration?.seconds || 0) : (meta.duration || 0),
+        thumbnail: meta.thumbnail || null
+      }
+      db.cacheMetadata(src, meta)
+    }
+
     // --- SPOTIFY PLAYLIST IMPORT ---
     if (trimmedUrl.includes('spotify.com') || trimmedUrl.includes('spotify:playlist:')) {
       const match = trimmedUrl.match(/(?:playlist\/|playlist:)([a-zA-Z0-9]+)/)
@@ -5129,7 +5562,7 @@ ipcMain.handle('importPlaylist', async (event, urlStr) => {
       for (const t of result.tracks) {
         const src = `yt:${t.title} ${t.artist}`
         tracks.push(src)
-        db.cacheMetadata(src, {
+        rememberMeta(src, {
           title: t.title,
           artist: t.artist,
           album: t.album,
@@ -5186,7 +5619,7 @@ ipcMain.handle('importPlaylist', async (event, urlStr) => {
             tracks.push(src)
 
             const thumb = entry.thumbnails?.[entry.thumbnails.length - 1]?.url || `https://i.ytimg.com/vi/${vId}/hqdefault.jpg`
-            db.cacheMetadata(src, {
+            rememberMeta(src, {
               title: entry.title || 'Unknown Title',
               artist: entry.uploader || entry.channel || entry.uploader_id || 'Unknown Artist',
               album: null,
@@ -5232,7 +5665,7 @@ ipcMain.handle('importPlaylist', async (event, urlStr) => {
               else if (item.artists) aText = item.artists.map(a => a.name).join(', ')
               else if (item.author) aText = typeof item.author === 'string' ? item.author : (item.author?.name || item.author?.text)
               
-              db.cacheMetadata(src, {
+              rememberMeta(src, {
                 title: tText || 'Unknown Title',
                 artist: aText,
                 album: item.album?.name || null,
@@ -5272,6 +5705,7 @@ ipcMain.handle('importPlaylist', async (event, urlStr) => {
       success: true,
       name: playlistName,
       tracks,
+      meta: importedMeta,
       total: spotifyTotal || tracks.length,
       truncated,
       source: spotifySource,

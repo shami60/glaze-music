@@ -16,6 +16,165 @@ export const TRANSLATION_LANGUAGES = [
 ]
 
 /**
+ * A YouTube video id is exactly 11 URL-safe characters. Anything else that
+ * happens to follow `yt:` — most notably the `yt:<title> <artist>` keys used by
+ * Spotify imports — is a search key, not an id, and must never be sent to the
+ * lyrics API as one.
+ */
+export function isVideoId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{11}$/.test(value.trim())
+}
+
+/**
+ * Work out which video a queue entry refers to.
+ *
+ * Every caller used to do this inline, slightly differently, which is how a
+ * track could resolve to an id from one entry point and to nothing from
+ * another — the same song then produced synced lyrics in one place and "not
+ * available" in another. Three shapes reach us:
+ *   - `track.videoId`, when the provider already knew it
+ *   - `yt:<id>`
+ *   - a downloaded file whose name ends in `[<id>].mp3`
+ */
+export function extractVideoId(track) {
+  if (!track) return null
+  if (isVideoId(track.videoId)) return track.videoId.trim()
+
+  const src = typeof track.src === 'string' ? track.src : ''
+  if (!src) return null
+
+  if (src.startsWith('yt:')) {
+    const id = src.slice(3).trim()
+    return isVideoId(id) ? id : null
+  }
+
+  // Local paths arrive raw, but a `media://` URL would carry `%5B…%5D`, so try
+  // the decoded form too rather than silently losing the id.
+  const candidates = [src]
+  try {
+    const decoded = decodeURIComponent(src)
+    if (decoded !== src) candidates.push(decoded)
+  } catch {
+    /* a stray % is not worth failing over */
+  }
+  for (const candidate of candidates) {
+    const match = candidate.match(/\[([A-Za-z0-9_-]{11})\]\.[A-Za-z0-9]+$/)
+    if (match) return match[1]
+  }
+  return null
+}
+
+/**
+ * Drop LRC timestamps so a synced sheet this parser cannot read still renders
+ * as text. Without it, an unparseable synced payload produced a blank panel
+ * with no explanation.
+ */
+export function stripTimestamps(text) {
+  return String(text || '')
+    .replace(/\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?\]/g, '')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/**
+ * A stretch with no vocal at all: an intro, a break between verses, an outro.
+ *
+ * LRC only timestamps *lines*, so a line's gap to the next one covers both the
+ * singing and any instrumental after it. The app used to have no concept of it,
+ * so during a break the last line sat there fully lit as if it were still being
+ * sung — which reads as the lyrics being out of sync, because nothing tells you
+ * the vocal stopped.
+ *
+ * The hard part is that a gap is ambiguous. "I want you back, I want you back"
+ * is followed by 7.3 s of nothing before the next line, but the phrase is *held*
+ * for most of it — it is singing, not silence. A syllable-count estimate cannot
+ * tell that apart from a real break, because the same words can be spat out in
+ * 2 s or drawn out over 7 s. Treating every long gap as instrumental made the
+ * indicator flash mid-verse, which is a worse bug than the one being fixed.
+ *
+ * So a line is allowed to hold a generous share of its gap (`HOLD_SHARE`), and
+ * only the remainder — the part that cannot plausibly still be singing — counts
+ * as instrumental. That trades recall for precision on purpose: a genuine break
+ * has to be long before it is announced, and intros and outros (which need no
+ * estimate at all) are still caught from the very first second.
+ *
+ * `EDGE` keeps the indicator off the boundaries so it cannot flicker against a
+ * held note at one end or a lyric landing at the other.
+ */
+export const INSTRUMENTAL_MIN_GAP = 5.0
+export const INSTRUMENTAL_EDGE = 0.6
+export const INSTRUMENTAL_HOLD_SHARE = 0.45
+
+/**
+ * Where the singing in a line stops, and whether the rest of the gap is a
+ * confident instrumental.
+ *
+ * LRC timestamps the start of each line and nothing else, so the gap to the next
+ * line is the only evidence available. In the ordinary case the words fill it —
+ * the next line begins when the next phrase begins — and the exception is a gap
+ * that is mostly instrumental.
+ *
+ * `estimate` (a syllable rate) exists only to recognise that exception. It is
+ * deliberately slow-biased: it may under-estimate how long a phrase is *held*,
+ * but it must never invent a break that is not there, because a false "just
+ * music" chip mid-verse is worse than a missed one.
+ *
+ * Both the word highlight and the instrumental chip call this, so the two cannot
+ * disagree. They used to: words were paced over the syllable estimate while the
+ * chip used a separate formula, so a line's highlight finished in about a third
+ * of the time the singer took and then sat frozen for the rest. That frozen tail
+ * is what "the lyrics run ahead of the artist" actually was.
+ */
+function sungWindow(gapLen, estimate) {
+  const hold = Math.min(gapLen, Math.max(estimate, gapLen * INSTRUMENTAL_HOLD_SHARE))
+  return { hold, isBreak: gapLen - hold >= INSTRUMENTAL_MIN_GAP }
+}
+
+export function findInstrumentalGap(lines, t, trackEnd) {
+  if (!Array.isArray(lines) || lines.length === 0) return null
+
+  let index = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (t >= lines[i].time) index = i
+    else break
+  }
+
+  // Before the first line: an intro. No estimate needed — nothing has been sung
+  // yet, so the whole stretch up to the first lyric is instrumental.
+  if (index < 0) {
+    const intro = lines[0].time
+    if (!(intro >= INSTRUMENTAL_MIN_GAP) || t > intro - INSTRUMENTAL_EDGE) return null
+    return { start: 0, end: intro, index: -1 }
+  }
+
+  const line = lines[index]
+  // An empty LRC line is already an explicit "no vocal here" marker and renders
+  // its own indicator — do not stack a second one on top.
+  if (!line.words || line.words.length === 0) return null
+
+  const sungUntil = typeof line.sungUntil === 'number' ? line.sungUntil : line.time
+  const next = lines[index + 1]
+  const until = next
+    ? next.time
+    : Number.isFinite(trackEnd) && trackEnd > 0
+      ? trackEnd
+      : null
+  if (until == null) return null
+
+  const span = Math.max(0, until - line.time)
+  const sung = Math.max(0, sungUntil - line.time)
+  // Same rule the word pacing used, so a line the highlight treats as sung can
+  // never be announced as instrumental, and vice versa.
+  const { hold, isBreak } = sungWindow(span, sung)
+  if (!isBreak) return null
+  const restStart = line.time + hold
+  if (t <= restStart + INSTRUMENTAL_EDGE || t >= until - INSTRUMENTAL_EDGE) return null
+
+  return { start: restStart, end: until, index }
+}
+
+/**
  * Turn `{ time, content }` LRC lines into lines carrying per-word timings.
  *
  * The source only timestamps whole lines, so word times have to be derived.
@@ -53,12 +212,15 @@ export function buildTimedLines(lines) {
     const weights = words.map(w => countSyllables(w))
     const total = weights.reduce((a, b) => a + b, 0) || 1
 
-    // How long the line plausibly takes to *sing*. LRC only gives the gap until
-    // the next line, and that gap often contains an instrumental break — spreading
-    // the words across the whole gap made the highlight crawl on for seconds after
-    // the singer stopped. Words lay out over the sung part; the last one holds.
-    const spoken = words.reduce((sum, w) => sum + 0.09 + 0.2 * countSyllables(w), 0)
-    const span = Math.min(duration, Math.max(0.6, spoken))
+    // How long the line takes to *sing*. The gap to the next line is the best
+    // evidence there is, so the words fill it — the next line starts when the
+    // next phrase does. Only when the tail of the gap is a confident instrumental
+    // do the words stop where the singing does, and there the syllable estimate
+    // is the better guide: `hold` is deliberately over-generous (it exists to
+    // keep the chip from firing early), so pacing across it would crawl.
+    const estimate = words.reduce((sum, w) => sum + 0.09 + 0.2 * countSyllables(w), 0)
+    const { isBreak } = sungWindow(duration, estimate)
+    const span = isBreak ? Math.max(0.6, Math.min(estimate, duration)) : duration
 
     let acc = 0
     const timed = words.map((w, idx) => {

@@ -107,7 +107,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   youtubeSearch: (query, type) => ipcRenderer.invoke('youtube:search', query, type),
   youtubeGetSearchSuggestions: (query) => ipcRenderer.invoke('youtube:getSearchSuggestions', query),
   youtubeGetHome: () => ipcRenderer.invoke('youtube:getHome'),
-  youtubeGetStreamUrl: (videoId) => ipcRenderer.invoke('youtube:getStreamUrl', videoId),
+  // `opts.forceDirect` asks for a URL that is known to play in a media element
+  // (yt-dlp), used as a one-shot retry when the element rejects a source.
+  youtubeGetStreamUrl: (videoId, opts) => ipcRenderer.invoke('youtube:getStreamUrl', videoId, opts),
   audioSetQuality: (quality) => ipcRenderer.invoke('audio:setQuality', quality),
   audioGetQuality: () => ipcRenderer.invoke('audio:getQuality'),
   // Reports the rendition the main process actually resolved (codec, bitrate,

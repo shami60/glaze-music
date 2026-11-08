@@ -6,7 +6,7 @@ import { THEMES } from '../themes'
 import { APPEARANCE_THEMES } from '../appearanceThemes'
 import { CUSTOM_PRESETS, customSwatch } from '../customTheme'
 import ListeningInsightsDashboard from './ListeningInsightsDashboard'
-import { UpdateRow } from './UpdateBanner'
+import { UpdateRow, useUpdateStatus } from './UpdateBanner'
 import { buildBackupPayload, applyBackupSettings, describeBackup, remapBackupPaths } from '../backup'
 
 // Backdrop presets are a compact picker, not a gallery: one row of small tiles
@@ -117,6 +117,11 @@ export default function SettingsView({
     streamQuality, applyStreamQuality, streamInfo,
     sleepTimer, setSleepTimerMinutes, setSleepTimerEndOfTrack, clearSleepTimer
   } = usePlayer()
+
+  // Drives the blinking dot beside the "Software updates" heading, so a pending
+  // update is noticed without scrolling to the row and reading the status line.
+  const updateState = useUpdateStatus()
+  const updateNeedsAttention = updateState.status === 'available' || updateState.status === 'ready'
 
   // Derived, never stored: the dropdown must reflect what the bands are actually
   // doing, including after a restart or when a band is dragged by hand.
@@ -1190,6 +1195,15 @@ export default function SettingsView({
               <path d="M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" />
             </svg>
             <h3 className="text-xl font-semibold">Software updates</h3>
+            {updateNeedsAttention && (
+              <span
+                className="relative flex h-2.5 w-2.5"
+                title={updateState.status === 'ready' ? 'Update ready — restart to apply' : 'Update available'}
+              >
+                <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${updateState.status === 'ready' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${updateState.status === 'ready' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              </span>
+            )}
           </div>
           <p className="text-sm text-white/40 mb-4 ml-7">
             Glaze Music checks for a new version shortly after launch and every four hours.
@@ -1258,7 +1272,7 @@ export default function SettingsView({
             Made by <span className="text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)] font-bold">Ahtesham Khan Niazi</span>
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-4">
             {/* Discord */}
             <button 
               onClick={() => window.electronAPI?.openExternal('https://discordapp.com/users/niazi.x')}
@@ -1284,6 +1298,26 @@ export default function SettingsView({
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-[#0A66C2]"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
               <span className="text-sm font-medium">Ahtesham Khan Niazi</span>
+            </button>
+
+            {/* Official site */}
+            <button 
+              onClick={() => window.electronAPI?.openExternal('https://shami60.github.io/glaze-music')}
+              className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all text-white/70 hover:text-white cursor-pointer"
+              title="Open the official Glaze Music site"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-emerald-400"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm6.93 6h-2.95a15.65 15.65 0 00-1.38-3.56A8.03 8.03 0 0118.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14a8.2 8.2 0 010-4h3.38a16.5 16.5 0 000 4H4.26zm.81 2h2.95c.32 1.25.78 2.45 1.38 3.56A8.03 8.03 0 015.07 16zm2.95-8H5.07a8.03 8.03 0 014.33-3.56A15.65 15.65 0 008.02 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66a14.6 14.6 0 010-4h4.68a14.6 14.6 0 010 4zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 01-4.33 3.56zM16.36 14a16.5 16.5 0 000-4h3.38a8.2 8.2 0 010 4h-3.38z"/></svg>
+              <span className="text-sm font-medium">Official Glaze Music Site</span>
+            </button>
+
+            {/* Source code */}
+            <button 
+              onClick={() => window.electronAPI?.openExternal('https://github.com/shami60/glaze-music')}
+              className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all text-white/70 hover:text-white cursor-pointer"
+              title="View the source on GitHub"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white/90"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+              <span className="text-sm font-medium">GitHub</span>
             </button>
           </div>
         </section>

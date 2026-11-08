@@ -19,7 +19,8 @@ import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { usePlayer, usePlaybackTime } from '../context/usePlayer'
 import { useLibrary } from '../context/LibraryContext'
 import { getArtURL, formatTime, getHighQualityArtURL, getSizedArtURL, onArtLoad } from '../utils'
-import { isRTL, parseLRC, translateLyrics, buildTimedLines } from '../lyricsUtils'
+import { isRTL, translateLyrics, buildTimedLines } from '../lyricsUtils'
+import { useLyrics } from '../hooks/useLyrics'
 import ClickableArtists from './ClickableArtists'
 import ContextMenu from './ContextMenu'
 import QuickAudioControls from './QuickAudioControls'
@@ -93,8 +94,7 @@ function ShelfCarousel({ children, className = "" }) {
       {showLeft && (
         <button
           onClick={() => scroll('left')}
-          className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-[var(--surface-1)]/95 hover:bg-black text-white border border-white/25 shadow-[0_4px_25px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-center transition-all duration-200 opacity-90 hover:opacity-100 hover:scale-110 active:scale-95 cursor-pointer"
-          style={{ contain: 'strict', isolation: 'isolate' }}
+          className="absolute left-1 sm:left-2 inset-y-0 my-auto z-30 w-11 h-11 rounded-full lg-glass-btn text-white flex items-center justify-center cursor-pointer"
           title="Previous"
         >
           <svg className="w-5 h-5 -ml-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -107,8 +107,7 @@ function ShelfCarousel({ children, className = "" }) {
       {showRight && (
         <button
           onClick={() => scroll('right')}
-          className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-[var(--surface-1)]/95 hover:bg-black text-white border border-white/25 shadow-[0_4px_25px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-center transition-all duration-200 opacity-90 hover:opacity-100 hover:scale-110 active:scale-95 cursor-pointer"
-          style={{ contain: 'strict', isolation: 'isolate' }}
+          className="absolute right-1 sm:right-2 inset-y-0 my-auto z-30 w-11 h-11 rounded-full lg-glass-btn text-white flex items-center justify-center cursor-pointer"
           title="Next"
         >
           <svg className="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -131,8 +130,9 @@ function TileLyrics({ track, accentColor, onClose }) {
   const { duration, seekTo, currentTrack, replaceQueue, isPlaying, audioElement } = usePlayer()
   // Position lives in its own context so the 4x/sec time updates don't re-render the app.
   const { currentTime } = usePlaybackTime()
-  const [lyrics, setLyrics] = useState({ type: null, data: null })
-  const [isLoading, setIsLoading] = useState(false)
+  // Same hook the lyrics panel uses — one policy for every surface.
+  const { lyrics, isLoading } = useLyrics(track)
+
   const containerRef = useRef(null)
   const activeLineRef = useRef(null)
 
@@ -143,46 +143,6 @@ function TileLyrics({ track, accentColor, onClose }) {
   const [translatedLyrics, setTranslatedLyrics] = useState(null)
 
   const isCurrentTrackPlaying = currentTrack?.src === track?.src
-
-  useEffect(() => {
-    let active = true
-    async function fetchLyrics() {
-      if (!track) return
-      setIsLoading(true)
-      setLyrics({ type: null, data: null })
-      setTranslatedLyrics(null)
-      let videoId = null
-      if (track.src?.startsWith('yt:')) {
-        videoId = track.src.replace('yt:', '')
-      } else if (track.src) {
-        const match = track.src.match(/\[([a-zA-Z0-9_-]{11})\]\.[^.]+$/)
-        if (match) videoId = match[1]
-      }
-      const title = track.title
-      const artist = track.artist
-
-      try {
-        if (window.electronAPI?.youtubeGetLyrics) {
-          const result = await window.electronAPI.youtubeGetLyrics(videoId, title, artist)
-          if (!active) return
-          if (result && result.text) {
-            if (result.type === 'synced') {
-              setLyrics({ type: 'synced', data: parseLRC(result.text) })
-            } else {
-              setLyrics({ type: 'plain', data: result.text })
-            }
-          } else {
-            setLyrics({ type: 'none', data: 'Lyrics not available' })
-          }
-        }
-      } catch (e) {
-        if (active) setLyrics({ type: 'none', data: 'Error loading lyrics' })
-      }
-      if (active) setIsLoading(false)
-    }
-    fetchLyrics()
-    return () => { active = false }
-  }, [track?.src, track?.title])
 
   // Translation effect
   useEffect(() => {
@@ -1726,7 +1686,7 @@ function HomeDashboard({
               <button
                 onClick={handleRefreshQuickPicks}
                 disabled={isRefreshingQuickPicks}
-                className="px-3 py-1.5 rounded-full text-xs font-bold bg-white/[0.08] hover:bg-white/[0.16] text-white transition-colors cursor-pointer flex items-center gap-1.5 border border-white/10 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-full text-xs font-bold text-white lg-glass-btn flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <svg className={`w-3.5 h-3.5 ${isRefreshingQuickPicks ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -1735,15 +1695,14 @@ function HomeDashboard({
               </button>
               <button
                 onClick={() => playAllQuickPicks(false)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-bold text-white transition-all hover:brightness-110 active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-sm"
-                style={{ backgroundColor: 'var(--theme-accent)' }}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold text-white lg-glass-btn is-strong flex items-center gap-1.5 cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                 <span>Play All</span>
               </button>
               <button
                 onClick={() => playAllQuickPicks(true)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/[0.08] hover:bg-white/[0.16] text-white transition-colors cursor-pointer flex items-center gap-1.5 border border-white/10"
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold text-white lg-glass-btn flex items-center gap-1.5 cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
                 <span>Shuffle</span>

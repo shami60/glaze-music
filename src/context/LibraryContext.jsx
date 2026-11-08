@@ -568,12 +568,81 @@ export function LibraryProvider({ children }) {
       name,
       files: list,
       tracks: list,
+      // Names, artists and artwork stored *with* the playlist, keyed by src.
+      // Reading them back is synchronous, so an imported playlist paints its
+      // rows immediately instead of showing placeholders until a DB round-trip
+      // returns — which is what made imports look like a separate kind of list.
+      meta: extra?.meta && typeof extra.meta === 'object' ? extra.meta : null,
       thumbnail: extra?.thumbnail || firstTrackArt || null,
       externalId: extra?.externalId || null,
       createdAt: Date.now()
     }
 
     setPlaylists(prev => [...prev, newPlaylist])
+  }, [])
+
+  // One-time backfill of per-playlist metadata.
+  //
+  // Playlists created before `meta` was stored (and imported ones from older
+  // builds) have nothing but `yt:` keys, so opening them painted placeholder
+  // rows and filled them in a beat later. Resolve once from the DB, write the
+  // result onto the playlist, and every later open is instant — the same shape
+  // new imports get. Runs only while some playlist still lacks `meta`, so it
+  // cannot loop: once written, that playlist is skipped forever.
+  useEffect(() => {
+    if (!Array.isArray(playlists) || playlists.length === 0) return
+    if (!window.electronAPI?.dbGetBulkMetadata) return
+
+    const needs = playlists.filter((p) => !p.meta && (p.files || p.tracks)?.length)
+    if (needs.length === 0) return
+
+    let cancelled = false
+    ;(async () => {
+      const updates = {}
+      for (const p of needs) {
+        const files = (p.files || p.tracks || [])
+          .filter((f) => typeof f === 'string' && f.startsWith('yt:'))
+          .slice(0, 1000)
+        if (files.length === 0) continue
+        const data = await window.electronAPI.dbGetBulkMetadata(files).catch(() => null)
+        if (!data) continue
+        const meta = {}
+        for (const [src, m] of Object.entries(data)) {
+          if (!m) continue
+          meta[src] = {
+            title: m.title || null,
+            artist: m.artist || null,
+            album: m.album || null,
+            duration: m.duration || 0,
+            // The DB column is `album_art`; older rows carry `albumArt`.
+            thumbnail: m.album_art || m.albumArt || m.thumbnail || null
+          }
+        }
+        if (Object.keys(meta).length > 0) updates[p.id] = meta
+      }
+      if (cancelled || Object.keys(updates).length === 0) return
+      setPlaylists((prev) => prev.map((p) => (
+        updates[p.id] ? { ...p, meta: { ...updates[p.id], ...(p.meta || {}) } } : p
+      )))
+    })()
+
+    return () => { cancelled = true }
+  }, [playlists, setPlaylists])
+
+  // Remember the YouTube id a search key resolved to.
+  //
+  // An imported track is keyed `yt:<title> <artist>`. Once anything (a download,
+  // most importantly) has resolved that key to a real id, saving it here makes the
+  // track behave like a normal one: no search on playback, and `isDownloaded` can
+  // match the id that is actually on disk.
+  const setPlaylistTrackVideoId = useCallback((playlistId, src, videoId) => {
+    if (!playlistId || !src || !videoId) return
+    setPlaylists(prev => prev.map(p => {
+      if (p.id !== playlistId) return p
+      const meta = { ...(p.meta || {}) }
+      meta[src] = { ...(meta[src] || {}), videoId }
+      return { ...p, meta }
+    }))
   }, [])
 
   const addToPlaylist = useCallback((srcOrTrack, playlistId) => {
@@ -791,7 +860,7 @@ export function LibraryProvider({ children }) {
     downloadFolder, setDownloadFolder,
     downloadedIds, isDownloaded, fetchDownloadedIds,
     addToFavourites, removeFromFavourites,
-    addToPlaylist, createAndAddToPlaylist,
+    addToPlaylist, createAndAddToPlaylist, setPlaylistTrackVideoId,
     removeFromPlaylist, deletePlaylist, renamePlaylist,
     toggleTrackInPlaylist,
     playlistModalTrack, openPlaylistModal, closePlaylistModal,

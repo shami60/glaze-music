@@ -62,7 +62,7 @@ export default function TrackList({
   onAddFolder, onOpenFiles
 }) {
   const safeFiles = Array.isArray(files) ? files : []
-  const { queue, currentTrack, isPlaying, replaceQueue, addToQueue, playNext, startRadio } = usePlayer()
+  const { queue, currentTrack, isPlaying, replaceQueue, addToQueue, playNext, startRadio, prefetchStreamUrl } = usePlayer()
   const [search, setSearch] = useState('')
   const [ctxMenu, setCtxMenu] = useState(null)
   const [downloadedIds, setDownloadedIds] = useState(new Set())
@@ -293,6 +293,7 @@ export default function TrackList({
       {/* Grid View */}
       {filtered.length > 0 && viewMode === 'grid' && (
         <GridRows
+          prefetchStreamUrl={prefetchStreamUrl}
           filtered={filtered}
           currentTrack={currentTrack}
           isPlaying={isPlaying}
@@ -323,6 +324,7 @@ export default function TrackList({
 
           {/* Virtual rows */}
           <VirtualRows
+            prefetchStreamUrl={prefetchStreamUrl}
             filtered={filtered}
             currentTrack={currentTrack}
             isPlaying={isPlaying}
@@ -376,7 +378,7 @@ export default function TrackList({
 }
 
 // ── Tile / Grid View Component ─────────────────────────────────────────────
-function GridRows({ filtered, currentTrack, isPlaying, queue, artCache, localMeta = {}, favourites, downloadedIds, onPlay, onAdd, onContextMenu }) {
+function GridRows({ filtered, currentTrack, isPlaying, queue, artCache, localMeta = {}, favourites, downloadedIds, onPlay, onAdd, onContextMenu, prefetchStreamUrl }) {
   const queueMap = React.useMemo(() => {
     const map = new Map()
     for (const t of queue) map.set(t.src, t)
@@ -398,6 +400,7 @@ function GridRows({ filtered, currentTrack, isPlaying, queue, artCache, localMet
           <div
             key={filePath}
             onDoubleClick={() => onPlay(index)}
+            onMouseEnter={() => prefetchStreamUrl?.({ src: filePath })}
             onContextMenu={e => onContextMenu(e, filePath)}
             className="group relative flex flex-col p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05] hover:border-white/10 transition-all duration-300 cursor-pointer shadow-lg hover:-translate-y-1"
           >
@@ -455,7 +458,7 @@ function GridRows({ filtered, currentTrack, isPlaying, queue, artCache, localMet
 }
 
 // ── Virtual scroll — only renders visible rows ─────────────────────────────
-function VirtualRows({ filtered, currentTrack, isPlaying, queue, artCache, localMeta = {}, favourites, downloadedIds, viewMode, onPlay, onAdd, onContextMenu }) {
+function VirtualRows({ filtered, currentTrack, isPlaying, queue, artCache, localMeta = {}, favourites, downloadedIds, viewMode, onPlay, onAdd, onContextMenu, prefetchStreamUrl }) {
   const containerRef = useRef(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(600)

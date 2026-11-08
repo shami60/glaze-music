@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { usePlayer, usePlaybackTime } from '../context/usePlayer'
 import { getArtURL, getHighQualityArtURL, formatTime } from '../utils'
-import { isRTL, parseLRC, buildTimedLines, vividAccent } from '../lyricsUtils'
+import { isRTL, buildTimedLines, vividAccent, findInstrumentalGap } from '../lyricsUtils'
+import { useLyrics } from '../hooks/useLyrics'
 
 // ── Playback Icons ────────────────────────────────────────────────────────────
 function PlayIcon() {
@@ -50,6 +51,35 @@ function RepeatIcon({ mode, accentColor }) {
   )
 }
 
+// Shown while nobody is singing — an intro, a break, an outro. The panel
+// deliberately holds still through those, and without a signal it just looks
+// stuck or late.
+function InstrumentalIndicator() {
+  return (
+    <div
+      data-instrumental="1"
+      className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3.5 py-2 rounded-full pointer-events-none"
+      style={{
+        background: 'rgba(20,20,24,0.55)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        // The chip floats over the fade tail of the last lyric line, so it needs
+        // its own surface or the text reads straight through it.
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+      }}
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-white/55" aria-hidden="true">
+        <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
+      </svg>
+      <span className="flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-white/75 animate-pulse" />
+        <span className="w-1.5 h-1.5 rounded-full bg-white/55 animate-pulse" style={{ animationDelay: '150ms' }} />
+        <span className="w-1.5 h-1.5 rounded-full bg-white/35 animate-pulse" style={{ animationDelay: '300ms' }} />
+      </span>
+    </div>
+  )
+}
+
 function VolumeIcon({ muted }) {
   return muted ? (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white/40"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0 0 17 19.73l2 2L20.73 20 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg>
@@ -82,8 +112,10 @@ export default function LyricsView({ onClose, embedded = false }) {
   // Position lives in its own context so the 4x/sec time updates don't re-render the app.
   const { currentTime: ctxCurrentTime, progress: ctxProgress } = usePlaybackTime()
 
-  const [lyrics, setLyrics] = useState({ type: null, data: null })
-  const [isLoading, setIsLoading] = useState(false)
+  // Fetching, retrying and parsing all live in one hook so the mini player and
+  // the home card cannot answer the same question differently.
+  const { lyrics, isLoading, reload: reloadLyrics } = useLyrics(currentTrack)
+
   const [isDragging, setIsDragging] = useState(false)
   const [seekPercent, setSeekPercent] = useState(0)
   const containerRef = useRef(null)
@@ -155,45 +187,6 @@ export default function LyricsView({ onClose, embedded = false }) {
     }
   }, [])
 
-  useEffect(() => {
-    let active = true
-    async function fetchLyrics() {
-      if (!currentTrack) return
-      setIsLoading(true)
-      setLyrics({ type: null, data: null })
-      let videoId = null
-      if (currentTrack.src?.startsWith('yt:')) {
-        videoId = currentTrack.src.replace('yt:', '')
-      } else if (currentTrack.src) {
-        // Extract videoId from offline downloaded tracks (format: Title [videoId].mp3)
-        const match = currentTrack.src.match(/\[([a-zA-Z0-9_-]{11})\]\.[^.]+$/)
-        if (match) videoId = match[1]
-      }
-      const title = currentTrack.title
-      const artist = currentTrack.artist
-      
-      try {
-        if (window.electronAPI?.youtubeGetLyrics) {
-          const result = await window.electronAPI.youtubeGetLyrics(videoId, title, artist)
-          if (!active) return
-          if (result) {
-            if (result.type === 'synced') {
-              setLyrics({ type: 'synced', data: parseLRC(result.text) })
-            } else {
-              setLyrics({ type: 'plain', data: result.text })
-            }
-          } else {
-            setLyrics({ type: 'none', data: 'Lyrics not available' })
-          }
-        }
-      } catch (e) {
-        if (active) setLyrics({ type: 'none', data: 'Error loading lyrics' })
-      }
-      if (active) setIsLoading(false)
-    }
-    fetchLyrics()
-    return () => { active = false }
-  }, [currentTrack])
 
   const displayLyrics = lyrics
   const timedLines = useMemo(() => buildTimedLines(displayLyrics.data), [displayLyrics])
@@ -204,10 +197,17 @@ export default function LyricsView({ onClose, embedded = false }) {
   // state only changes when the word changes, so this costs a handful of renders
   // per line rather than sixty per second.
   const [activeWord, setActiveWord] = useState({ line: -1, word: -1 })
+  // Set while nobody is singing — an intro, a break, an outro. Null when a vocal
+  // is playing. Held as the gap itself so the panel can also see which line is
+  // coming next.
+  const [instrumentalGap, setInstrumentalGap] = useState(null)
   useEffect(() => {
     // Not gated on isPlaying: this is also the source of truth for the active
     // line, so it has to keep up while paused (seeking, scrubbing).
-    if (!audioElement || timedLines.length === 0) return
+    if (!audioElement || timedLines.length === 0) {
+      setInstrumentalGap(null)
+      return
+    }
     let raf = 0
     const tick = () => {
       const t = audioElement.currentTime
@@ -225,11 +225,22 @@ export default function LyricsView({ onClose, embedded = false }) {
         }
       }
       setActiveWord(prev => (prev.line === li && prev.word === wi ? prev : { line: li, word: wi }))
+
+      // LRC timestamps lines, not vocals. Without this the last line stayed fully
+      // lit through a whole instrumental break, which is what made the panel look
+      // out of sync — nothing said the singer had stopped.
+      const gap = findInstrumentalGap(timedLines, t, duration)
+      setInstrumentalGap(prev => {
+        if (!gap) return prev === null ? prev : null
+        if (prev && prev.start === gap.start && prev.end === gap.end) return prev
+        return gap
+      })
+
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [audioElement, timedLines])
+  }, [audioElement, timedLines, duration])
 
   // Line index. Computed before the early return so the scroll effect below can
   // depend on it — hooks cannot sit after a conditional return.
@@ -308,6 +319,11 @@ export default function LyricsView({ onClose, embedded = false }) {
           transition per line on each change. */}
       {displayLyrics.type === 'synced' && timedLines.map((line, i) => {
         const isActive = i === activeIndex
+        // Nobody is singing right now: the line that was just sung stays on
+        // screen but stops looking live, and the next one is lifted out of the
+        // dim so you can read ahead while the music plays.
+        const isResting = isActive && instrumentalGap !== null
+        const isUpcoming = instrumentalGap !== null && i === instrumentalGap.index + 1
         const distance = activeIndex < 0 ? 99 : Math.abs(i - activeIndex)
         const isEmptyLine = line.words.length === 0
         const isLineRTL = isRTL(line.content)
@@ -315,7 +331,7 @@ export default function LyricsView({ onClose, embedded = false }) {
         // up yet (fresh lyrics, a re-render), derive it from the position instead
         // of blanking the highlight for a frame — that blank read as a glitch.
         let litWord = -1
-        if (isActive) {
+        if (isActive && !isResting) {
           if (activeWord.line === i) {
             litWord = activeWord.word
           } else {
@@ -339,8 +355,8 @@ export default function LyricsView({ onClose, embedded = false }) {
             className={`py-2.5 cursor-pointer transform-gpu w-full ${isLineRTL ? 'text-right origin-right' : 'text-left origin-left'}`}
             style={{
               color: 'var(--color-white)',
-              opacity: isActive ? 1 : distance === 1 ? 0.45 : distance === 2 ? 0.24 : 0.12,
-              transform: `scale(${isActive ? 1 : 0.97})`,
+              opacity: isResting ? 0.45 : isUpcoming ? 0.72 : isActive ? 1 : distance === 1 ? 0.45 : distance === 2 ? 0.24 : 0.12,
+              transform: `scale(${isActive && !isResting ? 1 : 0.97})`,
               transition: 'opacity 550ms cubic-bezier(0.22,1,0.36,1), transform 550ms cubic-bezier(0.22,1,0.36,1)',
               fontFamily: isLineRTL
                 ? "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Urdu Typesetting', 'Segoe UI', Tahoma, system-ui, sans-serif"
@@ -387,8 +403,17 @@ export default function LyricsView({ onClose, embedded = false }) {
       })}
 
       {displayLyrics.type === 'none' && !isLoading && (
-        <div className="flex items-center justify-center h-full text-2xl text-white/40 font-bold pb-[40vh] text-center px-4">
-          {displayLyrics.data}
+        <div className="flex flex-col items-center justify-center h-full text-2xl text-white/40 font-bold pb-[40vh] text-center px-4 gap-4">
+          <span>{displayLyrics.data}</span>
+          {displayLyrics.canRetry && (
+            <button
+              onClick={reloadLyrics}
+              className="text-sm font-semibold px-4 py-2 rounded-full text-white/80 hover:text-white transition-colors cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.1)' }}
+            >
+              Try again
+            </button>
+          )}
         </div>
       )}
       
@@ -410,6 +435,7 @@ export default function LyricsView({ onClose, embedded = false }) {
       <div className="flex-1 h-full relative z-10 w-full min-w-0 flex flex-col pt-4 pr-4">
         <div className="flex-1 min-h-0 relative">
           {lyricsContent}
+          {instrumentalGap && !isLoading && <InstrumentalIndicator />}
         </div>
         {styles}
       </div>
@@ -594,6 +620,7 @@ export default function LyricsView({ onClose, embedded = false }) {
       <div className="flex-[0.5] h-full relative z-10 pl-6 pr-14 xl:pr-20 flex flex-col pt-10 pb-6">
         <div className="flex-1 min-h-0 relative">
           {lyricsContent}
+          {instrumentalGap && !isLoading && <InstrumentalIndicator />}
         </div>
       </div>
 
