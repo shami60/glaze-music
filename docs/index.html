@@ -46,7 +46,14 @@
   nav .links a { opacity: .85; transition: opacity .2s ease; }
   nav .links a:hover { opacity: 1; }
   .x-link { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
-  @media (max-width: 760px) { nav .links { display: none; } }
+  @media (max-width: 760px) {
+    header .wrap { width: calc(100% - 24px); }
+    nav { flex-wrap: wrap; height: auto; padding: 10px 0 8px; gap: 10px 16px; }
+    nav .links { display: flex; order: 3; flex: 1 1 100%; margin-left: 0; gap: 18px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    nav .links::-webkit-scrollbar { display: none; }
+    nav .links a { white-space: nowrap; }
+    nav .btn.small { margin-left: auto; }
+  }
 
   .btn {
     display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;
@@ -452,6 +459,7 @@
       <a href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">Source</a>
       <a href="https://github.com/shami60/glaze-music/releases" target="_blank" rel="noopener">Releases</a>
       <a href="https://github.com/shami60/glaze-music/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://x.com/ShamiLabss" target="_blank" rel="noopener">@ShamiLabss</a>
     </div>
     <p style="margin:14px 0 0;">Not affiliated with YouTube or Google. A client for content you have access to — it does not host, mirror or redistribute any audio.</p>
   </div>
