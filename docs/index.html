@@ -48,11 +48,11 @@
   .x-link { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
   @media (max-width: 760px) {
     header .wrap { width: calc(100% - 24px); }
-    nav { flex-wrap: wrap; height: auto; padding: 10px 0 8px; gap: 10px 16px; }
+    nav { flex-wrap: wrap; height: auto; padding: 10px 0 8px; gap: 10px 16px; justify-content: center; }
+    nav .brand { margin-inline: auto; }
     nav .links { display: flex; order: 3; flex: 1 1 100%; margin-left: 0; gap: 18px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
     nav .links::-webkit-scrollbar { display: none; }
     nav .links a { white-space: nowrap; }
-    nav .btn.small { margin-left: auto; }
   }
 
   .btn {
@@ -236,7 +236,6 @@
         <a href="https://github.com/shami60/glaze-music" target="_blank" rel="noopener">GitHub</a>
         <a class="x-link" href="https://x.com/ShamiLabss" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="currentColor"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.47l8.6-9.83L0 1.15h7.59l5.24 6.93 6.07-6.93Zm-1.29 19.5h2.04L6.49 3.24H4.3l13.31 17.41Z"/></svg> @ShamiLabss</a>
       </div>
-      <a class="btn small" href="https://github.com/shami60/glaze-music/releases/latest/download/Glaze-Music-1.0.9.exe">Download</a>
     </nav>
   </div>
 </header>
