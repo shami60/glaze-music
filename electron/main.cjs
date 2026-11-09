@@ -4601,7 +4601,11 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
     // needs ~3.5 s when Innertube answers in about one. The forced-direct retry is
     // excluded — that is the last resort, and it is *supposed* to use yt-dlp.
     const skipYtdlp = !!opts?.skipYtdlp && !forceDirect
-    const useYtdlp = isTargetValid && (streamQuality === 'high' || forceDirect) && ytdlpAvailable() && !skipYtdlp
+    // The breaker no longer applies here. It was added to stop a slow downloader from
+    // delaying playback, but every place it removed yt-dlp also removed the only path
+    // that works on machines where Innertube's URLs are refused. Speed is not worth a
+    // track that will not play.
+    const useYtdlp = isTargetValid && (streamQuality === 'high' || forceDirect) && !skipYtdlp
     if (isTargetValid && (streamQuality === 'high' || forceDirect) && !useYtdlp) {
       log.info(`[StreamUrl] ${targetVid} yt-dlp in cooldown — Innertube only`)
     }
@@ -4664,7 +4668,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
             // with MEDIA_ERR_SRC_NOT_SUPPORTED and the track dies silently.
             // One ranged request settles it in ~100 ms, and the answer is cached.
             if (!(await isStreamUrlUsable(chosen.url))) {
-              logDebug(`[StreamUrl] ${client} returned an unusable URL, trying the next client`)
+              log.warn(`[StreamUrl] ${client} returned an unusable URL (no CORS/206), trying the next client`)
               continue
             }
             const info = { ...describeFormat(chosen), source: isAdaptive ? 'adaptive' : 'progressive' }
@@ -4676,8 +4680,8 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
               info
             })
             emitStreamInfo(cleanVideoId, info)
-            logDebug(
-              `[StreamUrl] ${cleanVideoId} via ${client} itag ${info.itag} ${info.codec} ` +
+            log.info(
+              `[StreamUrl] ${cleanVideoId} ok via ${client} itag ${info.itag} ${info.codec} ` +
               `${Math.round(info.bitrate / 1000)}kbps (${streamQuality}, ${info.source})`
             )
             return playableUrl

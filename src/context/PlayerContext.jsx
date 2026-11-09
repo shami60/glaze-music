@@ -728,10 +728,11 @@ export function PlayerProvider({ children }) {
     const savedTime = audio.currentTime || 0
     const wasPlaying = !audio.paused
     try {
-      // Interactive path: skip yt-dlp entirely. It needs ~3.5 s and Innertube answers in
-      // under one, so waiting even briefly for it is pure latency. Prefetch (which runs
-      // ahead of the user) still uses it, so warmed tracks keep the better rendition.
-      const url = await window.electronAPI.youtubeGetStreamUrl(videoId, { skipYtdlp: true })
+      // Back to the 1.0.9 order: let the resolver use yt-dlp when the quality preset
+      // calls for it. Skipping it made cold clicks fast on a healthy machine, but on a
+      // machine where Innertube's URLs are refused it removed the only path that worked
+      // — the build that "just works" for some users is the one that still asks yt-dlp.
+      const url = await window.electronAPI.youtubeGetStreamUrl(videoId)
       if (url && typeof url === 'string') {
         streamUrlCache.set(videoId, url)
         audio.src = url
