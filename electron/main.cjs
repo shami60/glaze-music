@@ -4505,8 +4505,11 @@ function ytdlpAvailable() {
 // with "The page needs to be reloaded" and `ios` / `web_safari` fail with the very error
 // this flag exists to fix. They make things worse, not better.
 const YTDLP_CLIENT_LADDER = [
-  ['--extractor-args', 'youtube:formats=missing_pot'],
-  []
+  { cookies: false, extra: ['--extractor-args', 'youtube:formats=missing_pot'] },
+  { cookies: false, extra: [] },
+  // Only reachable when the user configured a browser: a signed-in yt-dlp is subject to
+  // the PO-token gate, so it is the last resort, not the first.
+  { cookies: true, extra: ['--extractor-args', 'youtube:formats=missing_pot'] }
 ]
 
 async function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
@@ -4518,7 +4521,7 @@ async function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
       : path.join(app.getAppPath(), 'yt-dlp.exe'))
   if (!fs.existsSync(ytdlpPath)) return null
 
-  const attempt = (extraArgs) =>
+  const attempt = (rung) =>
     new Promise((resolve) => {
       const startedAt = Date.now()
       execFile(
@@ -4526,8 +4529,8 @@ async function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
         [
           '-f', 'bestaudio/best',
           '--no-playlist', '--no-warnings', '--no-check-certificate',
-          ...ytDlpCookieArgs(),
-          ...extraArgs,
+          ...(rung.cookies ? ytDlpCookieArgs() : []),
+          ...rung.extra,
           '--print', 'META|%(format_id)s|%(abr)s|%(ext)s',
           '-g',
           `https://www.youtube.com/watch?v=${videoId}`
@@ -4559,7 +4562,9 @@ async function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
 
   let lastWhy = ''
   for (let i = 0; i < YTDLP_CLIENT_LADDER.length; i += 1) {
-    const result = await attempt(YTDLP_CLIENT_LADDER[i])
+    const rung = YTDLP_CLIENT_LADDER[i]
+    if (rung.cookies && !readSavedCookiesBrowser()) continue
+    const result = await attempt(rung)
     if (result.ok) {
       if (i > 0) log.info(`[StreamUrl] ${videoId} needed player_client rung ${i}`)
       if (result.elapsed > YTDLP_SLOW_MS) {
@@ -4652,13 +4657,15 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
   const isStandardYtId = /^[a-zA-Z0-9_-]{11}$/.test(cleanVideoId)
 
   try {
-    // Prefer the signed-in client when the user has connected YouTube. Requests then
-    // carry their account, which is what YouTube expects from a real player — and it is
-    // the difference between "sign in to confirm you're not a bot" and a track that plays
-    // on a challenged network. Anonymous stays the fallback so nothing regresses for
-    // people who never signed in.
+    // Anonymous first, signed-in only as a fallback.
+    //
+    // 1.0.17 tried it the other way round and made things worse: a machine with a stored
+    // session answered every player request with HTTP 400 — for IOS, ANDROID_VR and
+    // ANDROID alike — so no client could resolve anything. The anonymous client is what
+    // works on a clean install, so it goes first and the session is only tried if that
+    // genuinely fails.
     const yt =
-      (await ensureYouTubeAuth().catch(() => null)) || (await initYouTubeI())
+      (await initYouTubeI()) || (await ensureYouTubeAuth().catch(() => null))
     if (yt && !isStandardYtId) {
       if (cleanVideoId.startsWith('MPREb_') || cleanVideoId.startsWith('PL') || cleanVideoId.startsWith('VL') || cleanVideoId.startsWith('RD') || cleanVideoId.startsWith('FEmusic_')) {
         try {
