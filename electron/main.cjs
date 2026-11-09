@@ -4453,6 +4453,46 @@ const YTDLP_COOLDOWN_MS = 10 * 60 * 1000
 let ytdlpCooldownUntil = 0
 // Rate limit for the "everything failed, try refreshing the extractor" recovery.
 let lastRescueRefresh = 0
+
+// Which rung of the yt-dlp ladder worked last time. On a network where the default client
+// is refused, walking past it costs 4-5 s per song, every song. Remembering the winner
+// turns a 10-15 s start into a single attempt. Reset whenever it stops working.
+let preferredYtdlpRung = null
+let preferredRungLoaded = false
+
+function readPreferredRung() {
+  if (preferredRungLoaded) return preferredYtdlpRung
+  preferredRungLoaded = true
+  try {
+    const file = path.join(app.getPath('userData'), 'ytdlp-rung.json')
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (Number.isInteger(saved?.rung) && saved.rung > 0) preferredYtdlpRung = saved.rung
+  } catch {
+    /* first run */
+  }
+  return preferredYtdlpRung
+}
+
+function rememberPreferredRung(rung) {
+  if (rung <= 0 || preferredYtdlpRung === rung) return
+  preferredYtdlpRung = rung
+  try {
+    fs.writeFileSync(path.join(app.getPath('userData'), 'ytdlp-rung.json'), JSON.stringify({ rung }))
+  } catch {
+    /* non-fatal */
+  }
+  log.info(`[StreamUrl] remembering player_client rung ${rung} for this machine`)
+}
+
+function forgetPreferredRung() {
+  if (preferredYtdlpRung === null) return
+  preferredYtdlpRung = null
+  try {
+    fs.unlinkSync(path.join(app.getPath('userData'), 'ytdlp-rung.json'))
+  } catch {
+    /* non-fatal */
+  }
+}
 // The reason the last resolution failed, surfaced to the UI. A user can screenshot a
 // banner; almost nobody can find %APPDATA%\glaze-music\logs\main.log.
 let lastStreamFailure = null
@@ -4567,13 +4607,28 @@ async function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
       )
     })
 
+  // Start where this machine last succeeded; fall back to a full walk if that changes.
+  const preferred = readPreferredRung()
+  const order =
+    preferred && preferred < YTDLP_CLIENT_LADDER.length
+      ? [preferred, ...YTDLP_CLIENT_LADDER.map((_, i) => i).filter((i) => i !== preferred)]
+      : YTDLP_CLIENT_LADDER.map((_, i) => i)
+
   let lastWhy = ''
-  for (let i = 0; i < YTDLP_CLIENT_LADDER.length; i += 1) {
+  for (const i of order) {
     const rung = YTDLP_CLIENT_LADDER[i]
     if (rung.cookies && !readSavedCookiesBrowser()) continue
     const result = await attempt(rung)
     if (result.ok) {
-      if (i > 0) log.info(`[StreamUrl] ${videoId} needed player_client rung ${i}`)
+      if (i > 0) {
+        log.info(`[StreamUrl] ${videoId} needed player_client rung ${i}`)
+        rememberPreferredRung(i)
+      } else if (preferred) {
+        // The remembered rung stopped working — forget it so the next song does not pay
+        // for a failed first attempt.
+        log.warn('[StreamUrl] remembered rung failed — back to walking the ladder')
+        forgetPreferredRung()
+      }
       if (result.elapsed > YTDLP_SLOW_MS) {
         ytdlpCooldownUntil = Date.now() + YTDLP_COOLDOWN_MS
         log.warn(`[StreamUrl] yt-dlp took ${result.elapsed}ms — skipping it for 10 min`)

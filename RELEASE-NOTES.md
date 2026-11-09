@@ -1,10 +1,9 @@
-# What's new in 1.0.20
+# What's new in 1.0.21
 
-- **Songs now try four different ways before giving up.** When YouTube refuses the default
-  client, the downloader retries through the Android, Android VR and embedded-TV clients —
-  each measured to answer when the default does not.
-- Every lookup failure is now recorded in the log. Nothing in the song lookup can fail
-  silently any more.
+- **Songs start faster.** On networks where YouTube refuses the default client, Glaze now
+  remembers which one works and starts there, instead of retrying the refused one for every
+  song. That turns a 10-15 second wait into a single attempt.
+- If YouTube changes its mind, the app notices and goes back to trying each client.
 
 ---
 
