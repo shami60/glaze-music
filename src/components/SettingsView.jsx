@@ -119,6 +119,20 @@ export default function SettingsView({
     accentColor
   } = usePlayer()
 
+  // Which browser the downloader may borrow cookies from ('' = off).
+  const [cookiesBrowser, setCookiesBrowser] = useState('')
+  useEffect(() => {
+    let alive = true
+    Promise.resolve(window.electronAPI?.getPreferences?.())
+      .then((prefs) => {
+        if (alive && typeof prefs?.cookiesBrowser === 'string') setCookiesBrowser(prefs.cookiesBrowser)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
   // Drives the blinking dot beside the "Software updates" heading, so a pending
   // update is noticed without scrolling to the row and reading the status line.
   const updateState = useUpdateStatus()
@@ -1086,6 +1100,43 @@ export default function SettingsView({
             >
               Change Location
             </button>
+          </div>
+        </section>
+
+        {/* ── YouTube sign-in (browser cookies) ──────────────────────────────── */}
+        {/* Some networks get a "confirm you're not a bot" challenge from YouTube. The
+            documented way through is letting the downloader borrow a signed-in browser
+            session. It is opt-in: reading browser cookies is the user's call, not ours. */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2.5 mb-1">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <path d="M12 2a5 5 0 0 0-5 5v2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 7V7a3 3 0 1 1 6 0v2H9z" />
+            </svg>
+            <h3 className="text-xl font-semibold">YouTube sign-in</h3>
+          </div>
+          <p className="text-sm text-white/40 mb-5 ml-7 max-w-[640px]">
+            If songs refuse to play with &ldquo;sign in to confirm you&rsquo;re not a bot&rdquo;, YouTube is
+            challenging this network. Letting Glaze use a browser you are signed in to usually
+            clears it. Nothing is uploaded &mdash; the cookies are read locally.
+          </p>
+          <div className="flex items-center gap-4 ml-7">
+            <select
+              value={cookiesBrowser}
+              onChange={async (e) => {
+                const value = e.target.value
+                setCookiesBrowser(value)
+                await window.electronAPI?.savePreferences?.({ cookiesBrowser: value })
+              }}
+              className="flex-1 rounded-xl p-3 bg-white/5 border border-white/10 text-white/80 text-sm cursor-pointer"
+            >
+              <option value="">Off &mdash; don&rsquo;t use browser cookies</option>
+              <option value="chrome">Chrome</option>
+              <option value="edge">Edge</option>
+              <option value="firefox">Firefox</option>
+              <option value="brave">Brave</option>
+              <option value="opera">Opera</option>
+              <option value="vivaldi">Vivaldi</option>
+            </select>
           </div>
         </section>
 

@@ -1,8 +1,10 @@
-# What's new in 1.0.15
+# What's new in 1.0.16
 
-- **When a song can't be played, the app now says why** — a banner names the reason instead
-  of nothing happening at all.
-- Song lookup keeps the reliable order restored in 1.0.14.
+- **Fix for "some songs won't play".** YouTube sometimes challenges an entire network with
+  "sign in to confirm you're not a bot" — nothing to do with Glaze, and no retry clears it.
+  Settings now has **YouTube sign-in**: pick a browser you are signed in to, and Glaze uses
+  that session. This is the documented way past the challenge.
+- When a song can't play, the app now tells you why.
 
 ---
 

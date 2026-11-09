@@ -2594,6 +2594,7 @@ ipcMain.handle('youtube:downloadTrack', async (_event, videoId, customFolder) =>
       '--no-playlist',
       '--no-check-certificate',
       '--no-warnings',
+      ...ytDlpCookieArgs(),
       '--newline',
       '--progress',
       '--progress-template', progressTemplate,
@@ -4453,6 +4454,33 @@ let lastRescueRefresh = 0
 let lastStreamFailure = null
 let lastYtdlpMessage = ''
 
+// YouTube shows a "Sign in to confirm you're not a bot" challenge to some networks —
+// VPNs, datacentre ranges, or an IP that has made too many requests. It is not something
+// this app caused, and no retry clears it. The documented way through is to let yt-dlp
+// borrow the user's own browser session, which is why this is a preference rather than
+// something done silently: reading browser cookies is the user's decision.
+let savedCookiesBrowser = null
+
+function readSavedCookiesBrowser() {
+  if (savedCookiesBrowser !== null) return savedCookiesBrowser
+  savedCookiesBrowser = ''
+  try {
+    const prefPath = path.join(app.getPath('documents'), 'Glaze Music', 'preferences.json')
+    if (fs.existsSync(prefPath)) {
+      const prefs = JSON.parse(fs.readFileSync(prefPath, 'utf8')) || {}
+      if (typeof prefs.cookiesBrowser === 'string') savedCookiesBrowser = prefs.cookiesBrowser.trim()
+    }
+  } catch {
+    /* no preferences yet */
+  }
+  return savedCookiesBrowser
+}
+
+function ytDlpCookieArgs() {
+  const browser = readSavedCookiesBrowser()
+  return browser ? ['--cookies-from-browser', browser] : []
+}
+
 function ytdlpAvailable() {
   return Date.now() >= ytdlpCooldownUntil
 }
@@ -4471,6 +4499,7 @@ function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
       [
         '-f', 'bestaudio/best',
         '--no-playlist', '--no-warnings', '--no-check-certificate',
+        ...ytDlpCookieArgs(),
         '--print', 'META|%(format_id)s|%(abr)s|%(ext)s',
         '-g',
         `https://www.youtube.com/watch?v=${videoId}`
@@ -4726,6 +4755,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
           '--no-check-certificate',
           '--no-warnings',
           '--no-cache-dir',
+          ...ytDlpCookieArgs(),
           // Match the preset: best available, <=160 kbps, or <=96 kbps.
           '--format', YTDLP_FORMAT_BY_QUALITY[streamQuality] || 'bestaudio/best'
         ], { timeout: 6000, windowsHide: true }, (error, stdout, stderr) => {
@@ -4772,6 +4802,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
             [
               isStandardYtId ? `https://www.youtube.com/watch?v=${cleanVideoId}` : `ytsearch1:${cleanVideoId}`,
               '-g', '--no-playlist', '--no-check-certificate', '--no-warnings', '--no-cache-dir',
+              ...ytDlpCookieArgs(),
               '--format', YTDLP_FORMAT_BY_QUALITY[streamQuality] || 'bestaudio/best'
             ],
             { timeout: 15000, windowsHide: true },
@@ -4812,9 +4843,11 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
     videoId: cleanVideoId,
     at: Date.now(),
     // Keep it human: the raw yt-dlp line is the most specific thing we have.
-    reason: lastYtdlpMessage
-      ? lastYtdlpMessage.replace(/^ERROR:[ ]*/, '').slice(0, 160)
-      : 'every source refused the track'
+    reason: /not a bot|sign in to confirm/i.test(lastYtdlpMessage)
+      ? 'YouTube is asking this network to sign in. Turn on "Use browser cookies" in Settings.'
+      : lastYtdlpMessage
+        ? lastYtdlpMessage.replace(/^ERROR:[ ]*/, '').slice(0, 160)
+        : 'every source refused the track'
   }
   return null
 })
@@ -4897,6 +4930,15 @@ ipcMain.handle('preferences:load', () => {
   return null
 })
 
+ipcMain.handle('preferences:get', async () => {
+  try {
+    const prefPath = path.join(app.getPath('documents'), 'Glaze Music', 'preferences.json')
+    return JSON.parse(await fs.promises.readFile(prefPath, 'utf8')) || {}
+  } catch {
+    return {}
+  }
+})
+
 ipcMain.handle('preferences:save', async (_event, prefs) => {
   // Serialise the whole read-modify-write. Queueing only the write would still
   // let two saves read the same stale `existing` and clobber each other.
@@ -4922,6 +4964,9 @@ ipcMain.handle('preferences:save', async (_event, prefs) => {
       // already picked in Settings.
       if (typeof merged.downloadFolder === 'string' && merged.downloadFolder.trim()) {
         savedDownloadFolder = merged.downloadFolder.trim()
+      }
+      if (typeof merged.cookiesBrowser === 'string') {
+        savedCookiesBrowser = merged.cookiesBrowser.trim()
       }
 
       // NOTE: this handler deliberately does NOT widen the media allow-list.

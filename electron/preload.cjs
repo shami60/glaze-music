@@ -154,6 +154,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Preferences ─────────────────────────────────────────────────────────────
   loadPreferences: () => ipcRenderer.invoke('preferences:load'),
   savePreferences: (prefs) => ipcRenderer.invoke('preferences:save', prefs),
+  getPreferences: () => ipcRenderer.invoke('preferences:get'),
   
   // ── Playback State & Session ────────────────────────────────────────────────
   loadPlaybackState: () => ipcRenderer.invoke('playback:load'),
