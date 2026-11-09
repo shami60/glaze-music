@@ -685,7 +685,7 @@ async function refreshYtDlp(maxAgeMs, label = 'pre-download') {
 
   log.debug(`[Download] Refreshing yt-dlp (${label})`)
   return new Promise((resolve) => {
-    execFile(binary, ['-U'], { timeout: 60000, windowsHide: true }, (err, stdout) => {
+    execFile(binary, ['-U'], { timeout: 30000, windowsHide: true }, (err, stdout) => {
       try {
         fs.writeFileSync(stampPath, JSON.stringify({ lastCheck: Date.now() }))
       } catch {
@@ -4444,6 +4444,8 @@ const YTDLP_SLOW_MS = 6000
 // straight to Innertube. 10 minutes is long enough to matter, short enough to recover.
 const YTDLP_COOLDOWN_MS = 10 * 60 * 1000
 let ytdlpCooldownUntil = 0
+// Rate limit for the "everything failed, try refreshing the extractor" recovery.
+let lastRescueRefresh = 0
 
 function ytdlpAvailable() {
   return Date.now() >= ytdlpCooldownUntil
@@ -4468,9 +4470,13 @@ function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
         `https://www.youtube.com/watch?v=${videoId}`
       ],
       { timeout: budgetMs, windowsHide: true, maxBuffer: 1024 * 1024 },
-      (err, stdout) => {
+      (err, stdout, stderr) => {
         const elapsed = Date.now() - startedAt
         if (err || !stdout) {
+          // yt-dlp's own message is the only thing that says *why* — a stale extractor,
+          // a 403, an age gate. Without it the log just said "exit 1".
+          const why = String(stderr || '').trim().split('\n').filter(Boolean).slice(-1)[0] || ''
+          if (why) log.warn(`[StreamUrl] yt-dlp said: ${why.slice(0, 200)}`)
           // A short interactive probe timing out is not a failure — the caller simply
           // did not want to wait. Only a full-length attempt may trip the breaker.
           if (budgetMs >= YTDLP_TIMEOUT_MS) {
@@ -4709,8 +4715,12 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
           '--no-cache-dir',
           // Match the preset: best available, <=160 kbps, or <=96 kbps.
           '--format', YTDLP_FORMAT_BY_QUALITY[streamQuality] || 'bestaudio/best'
-        ], { timeout: 6000, windowsHide: true }, (error, stdout) => {
-          if (error || !stdout) return resolve(null)
+        ], { timeout: 6000, windowsHide: true }, (error, stdout, stderr) => {
+          if (error || !stdout) {
+            const why = String(stderr || '').trim().split('\n').filter(Boolean).slice(-1)[0] || ''
+            if (why) log.warn(`[StreamUrl] yt-dlp (rescue) said: ${why.slice(0, 200)}`)
+            return resolve(null)
+          }
           const firstUrl = stdout.trim().split('\n').find(l => l.startsWith('http'))
           resolve(firstUrl || null)
         })
@@ -4729,6 +4739,54 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
     }
   } catch (dlpErr) {
     log.warn(`[StreamUrl] yt-dlp error for ${cleanVideoId}: ${dlpErr.message}`)
+  }
+
+  // Nothing worked. Before giving up, consider the most common cause of *both* paths
+  // failing at once: a stale extractor. yt-dlp then exits 1 in about three seconds
+  // ("Unable to extract"), and the Innertube URLs are ones the element rejects. Refresh
+  // it and try once more — a track that was permanently dead becomes a slow one.
+  if (Date.now() - lastRescueRefresh > 5 * 60 * 1000) {
+    lastRescueRefresh = Date.now()
+    log.warn(`[StreamUrl] ${cleanVideoId} failed on every path — refreshing yt-dlp and retrying once`)
+    try {
+      await refreshYtDlp(0, 'resolution failure')
+      const bin = global.ytDlpPath
+      if (bin && fs.existsSync(bin)) {
+        const { execFile } = require('child_process')
+        const recovered = await new Promise((resolve) => {
+          execFile(
+            bin,
+            [
+              isStandardYtId ? `https://www.youtube.com/watch?v=${cleanVideoId}` : `ytsearch1:${cleanVideoId}`,
+              '-g', '--no-playlist', '--no-check-certificate', '--no-warnings', '--no-cache-dir',
+              '--format', YTDLP_FORMAT_BY_QUALITY[streamQuality] || 'bestaudio/best'
+            ],
+            { timeout: 15000, windowsHide: true },
+            (error, stdout, stderr) => {
+              if (error || !stdout) {
+                const why = String(stderr || '').trim().split('\n').filter(Boolean).slice(-1)[0] || ''
+                if (why) log.warn(`[StreamUrl] yt-dlp after refresh said: ${why.slice(0, 200)}`)
+                return resolve(null)
+              }
+              resolve(stdout.trim().split('\n').find((l) => l.startsWith('http')) || null)
+            }
+          )
+        })
+        if (recovered) {
+          const info = { itag: null, mimeType: '', codec: 'yt-dlp', bitrate: 0, quality: streamQuality, source: 'yt-dlp' }
+          setCachedStreamUrl(streamCacheKey(cleanVideoId), {
+            url: recovered,
+            expireAt: calculateStreamExpiry(recovered),
+            info
+          })
+          emitStreamInfo(cleanVideoId, info)
+          log.info(`[StreamUrl] ${cleanVideoId} recovered after refreshing yt-dlp`)
+          return recovered
+        }
+      }
+    } catch (err) {
+      log.warn(`[StreamUrl] recovery attempt failed: ${err?.message || err}`)
+    }
   }
 
   // Nothing worked. This used to return null in silence, which is why a user's log
