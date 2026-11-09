@@ -4693,10 +4693,12 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
       ? path.join(process.resourcesPath, 'yt-dlp.exe')
       : path.join(__dirname, '..', 'yt-dlp.exe'))
 
-    // Respect the breaker here too. This is the last resort, but when yt-dlp has just
-    // failed it will fail again — and 6 s per track is worse than failing fast and
-    // telling the user.
-    if (fs.existsSync(ytdlpPath) && ytdlpAvailable()) {
+    // Deliberately NOT gated on `ytdlpAvailable()`. The breaker exists to stop the
+    // *fast path* queueing behind a slow downloader — but this is the last resort, and
+    // gating it meant one slow yt-dlp call turned every track Innertube could not serve
+    // into "no supported source" for the next ten minutes. That shipped in 1.0.10 and
+    // broke playback outright; see the UNRESOLVED lines in main.log.
+    if (fs.existsSync(ytdlpPath)) {
       const ytdlpUrl = await new Promise((resolve) => {
         execFile(ytdlpPath, [
           isStandardYtId ? `https://www.youtube.com/watch?v=${cleanVideoId}` : `ytsearch1:${cleanVideoId}`,

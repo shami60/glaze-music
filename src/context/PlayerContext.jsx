@@ -1415,6 +1415,10 @@ export function PlayerProvider({ children }) {
           
           if (!rawUrl || typeof rawUrl !== 'string') {
             streamUrlCache.delete(videoId)
+            // Resolution can fail transiently — YouTube occasionally answers a burst of
+            // requests with nothing usable. A beat before the retry turns that from a
+            // dead track into a slightly late one.
+            await new Promise((resolve) => setTimeout(resolve, 600))
             try {
               rawUrl = await window.electronAPI.youtubeGetStreamUrl(videoId)
               if (rawUrl && typeof rawUrl === 'string') {
