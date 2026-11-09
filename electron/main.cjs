@@ -162,6 +162,7 @@ async function initYouTubeI() {
       return ytInstance
     } catch (err) {
       console.error('Failed to init youtubei.js:', err)
+      log.warn(`[YouTube] anonymous client unavailable: ${err?.message || err}`)
       ytInitPromise = null
       return null
     }
@@ -4504,9 +4505,15 @@ function ytdlpAvailable() {
 // Do NOT add player_client=tv/ios/web_safari here: measured on this machine, `tv` fails
 // with "The page needs to be reloaded" and `ios` / `web_safari` fail with the very error
 // this flag exists to fix. They make things worse, not better.
+// Each rung was measured on this machine before being added. The first rung is the
+// default client with token-less formats kept; the explicit clients after it are the ones
+// that answered when the default was refused. tv/ios/web_safari are deliberately absent —
+// they fail here with the very error this ladder exists to get past.
 const YTDLP_CLIENT_LADDER = [
   { cookies: false, extra: ['--extractor-args', 'youtube:formats=missing_pot'] },
-  { cookies: false, extra: [] },
+  { cookies: false, extra: ['--extractor-args', 'youtube:player_client=android_vr;formats=missing_pot'] },
+  { cookies: false, extra: ['--extractor-args', 'youtube:player_client=android;formats=missing_pot'] },
+  { cookies: false, extra: ['--extractor-args', 'youtube:player_client=tv_embedded;formats=missing_pot'] },
   // Only reachable when the user configured a browser: a signed-in yt-dlp is subject to
   // the PO-token gate, so it is the last resort, not the first.
   { cookies: true, extra: ['--extractor-args', 'youtube:formats=missing_pot'] }
@@ -4737,6 +4744,12 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
       }
     }
 
+    if (!yt) {
+      log.warn(`[StreamUrl] ${cleanVideoId}: no Innertube client — skipping the direct path entirely`)
+    } else if (!isTargetValid) {
+      log.warn(`[StreamUrl] ${cleanVideoId}: not a video id, so Innertube cannot be used`)
+    }
+
     if (yt && isTargetValid && !forceDirect) {
       // IOS first, and this matters more than it looks. ANDROID_VR returns a
       // slightly better Opus rendition, but its URLs are throttled by the CDN:
@@ -4790,7 +4803,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
       }
     }
   } catch (err) {
-    logDebug(`[StreamUrl] Innertube init or search error: ${err.message}`)
+    log.warn(`[StreamUrl] Innertube init or search error: ${err?.message || err}`)
   }
 
   // 2. Parallel fallback: yt-dlp extraction
