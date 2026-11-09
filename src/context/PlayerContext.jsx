@@ -1450,6 +1450,16 @@ export function PlayerProvider({ children }) {
           
           if (!rawUrl || typeof rawUrl !== 'string') {
             console.error('Failed to get stream URL for youtube track:', videoId)
+            // Say why, in the one place the app already speaks about playback problems.
+            // Without this the track just does nothing and the user has nothing to report.
+            const failure = await window.electronAPI
+              ?.getStreamFailure?.()
+              .catch(() => null)
+            announceOffline(
+              `Couldn't play "${track.title || 'that track'}" — ${
+                failure?.reason || 'every source refused it'
+              }`
+            )
             setIsLoadingMeta(false)
             isLoadingMetaRef.current = false
             setIsPlaying(false)

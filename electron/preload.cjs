@@ -63,6 +63,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // `downloadUpdate`. `installUpdate` quits and runs the NSIS installer.
   getUpdateState: () => ipcRenderer.invoke('update:getState'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  // Why the last stream lookup failed — shown to the user so a broken machine can
+  // report the reason without finding a log file.
+  getStreamFailure: () => ipcRenderer.invoke('stream:lastFailure'),
   // Windows media flyout (SMTC). The native bridge lives in main; the renderer just
   // reports what is playing and listens for the flyout's transport buttons.
   smtcUpdate: (payload) => ipcRenderer.invoke('smtc:update', payload),

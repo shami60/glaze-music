@@ -4427,6 +4427,8 @@ ipcMain.handle('audio:setQuality', (_event, quality) => {
 
 ipcMain.handle('audio:getQuality', () => streamQuality)
 
+ipcMain.handle('stream:lastFailure', () => lastStreamFailure)
+
 // Resolve the best audio-only stream through yt-dlp.
 //
 // Innertube's own best rendition (Opus 251 from ANDROID_VR) is CDN-throttled to
@@ -4446,6 +4448,10 @@ const YTDLP_COOLDOWN_MS = 10 * 60 * 1000
 let ytdlpCooldownUntil = 0
 // Rate limit for the "everything failed, try refreshing the extractor" recovery.
 let lastRescueRefresh = 0
+// The reason the last resolution failed, surfaced to the UI. A user can screenshot a
+// banner; almost nobody can find %APPDATA%\glaze-music\logs\main.log.
+let lastStreamFailure = null
+let lastYtdlpMessage = ''
 
 function ytdlpAvailable() {
   return Date.now() >= ytdlpCooldownUntil
@@ -4476,7 +4482,10 @@ function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
           // yt-dlp's own message is the only thing that says *why* — a stale extractor,
           // a 403, an age gate. Without it the log just said "exit 1".
           const why = String(stderr || '').trim().split('\n').filter(Boolean).slice(-1)[0] || ''
-          if (why) log.warn(`[StreamUrl] yt-dlp said: ${why.slice(0, 200)}`)
+          if (why) {
+            lastYtdlpMessage = why.slice(0, 200)
+            log.warn(`[StreamUrl] yt-dlp said: ${lastYtdlpMessage}`)
+          }
           // A short interactive probe timing out is not a failure — the caller simply
           // did not want to wait. Only a full-length attempt may trip the breaker.
           if (budgetMs >= YTDLP_TIMEOUT_MS) {
@@ -4799,6 +4808,14 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
     `[StreamUrl] ${cleanVideoId} UNRESOLVED — every Innertube client and yt-dlp failed ` +
       `(quality=${streamQuality}, ytDlpAvailable=${ytdlpAvailable()})`
   )
+  lastStreamFailure = {
+    videoId: cleanVideoId,
+    at: Date.now(),
+    // Keep it human: the raw yt-dlp line is the most specific thing we have.
+    reason: lastYtdlpMessage
+      ? lastYtdlpMessage.replace(/^ERROR:[ ]*/, '').slice(0, 160)
+      : 'every source refused the track'
+  }
   return null
 })
 
