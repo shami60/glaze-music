@@ -2595,6 +2595,9 @@ ipcMain.handle('youtube:downloadTrack', async (_event, videoId, customFolder) =>
       '--no-check-certificate',
       '--no-warnings',
       ...ytDlpCookieArgs(),
+      // Same PO-token gate as playback: without this, downloads fail with
+      // "Requested format is not available" on affected networks.
+      '--extractor-args', 'youtube:formats=missing_pot',
       '--newline',
       '--progress',
       '--progress-template', progressTemplate,
@@ -4485,68 +4488,112 @@ function ytdlpAvailable() {
   return Date.now() >= ytdlpCooldownUntil
 }
 
-function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
-  return new Promise((resolve) => {
-    const startedAt = Date.now()
-    const { execFile } = require('child_process')
-    const ytdlpPath = global.ytDlpPath || (app.isPackaged
+// yt-dlp negotiates a player client internally, and which one it picks decides whether
+// YouTube hands over a usable format. On some networks the default (web) is served only
+// PO-token-gated renditions, and yt-dlp reports the misleading
+// "Requested format is not available" — the formats exist, they are just not offered to
+// that client. The tv / ios clients are not gated the same way, so walk the ladder until
+// one of them answers. Each rung keeps the same timeout, and the ladder stops early on a
+// failure that no client can fix (a 404, an age gate).
+// Verified against real failures: `formats=missing_pot` keeps the renditions YouTube
+// serves without a PO token. Without it, yt-dlp filters them out and reports
+// "Requested format is not available" — which is what the affected machines were seeing
+// once cookies cleared the bot check. Rung 1 is the plain default, kept as a fallback in
+// case a future yt-dlp changes the meaning of the flag.
+//
+// Do NOT add player_client=tv/ios/web_safari here: measured on this machine, `tv` fails
+// with "The page needs to be reloaded" and `ios` / `web_safari` fail with the very error
+// this flag exists to fix. They make things worse, not better.
+const YTDLP_CLIENT_LADDER = [
+  ['--extractor-args', 'youtube:formats=missing_pot'],
+  []
+]
+
+async function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
+  const { execFile } = require('child_process')
+  const ytdlpPath =
+    global.ytDlpPath ||
+    (app.isPackaged
       ? path.join(process.resourcesPath, 'yt-dlp.exe')
       : path.join(app.getAppPath(), 'yt-dlp.exe'))
-    if (!fs.existsSync(ytdlpPath)) return resolve(null)
+  if (!fs.existsSync(ytdlpPath)) return null
 
-    execFile(
-      ytdlpPath,
-      [
-        '-f', 'bestaudio/best',
-        '--no-playlist', '--no-warnings', '--no-check-certificate',
-        ...ytDlpCookieArgs(),
-        '--print', 'META|%(format_id)s|%(abr)s|%(ext)s',
-        '-g',
-        `https://www.youtube.com/watch?v=${videoId}`
-      ],
-      { timeout: budgetMs, windowsHide: true, maxBuffer: 1024 * 1024 },
-      (err, stdout, stderr) => {
-        const elapsed = Date.now() - startedAt
-        if (err || !stdout) {
-          // yt-dlp's own message is the only thing that says *why* — a stale extractor,
-          // a 403, an age gate. Without it the log just said "exit 1".
-          const why = String(stderr || '').trim().split('\n').filter(Boolean).slice(-1)[0] || ''
-          if (why) {
-            lastYtdlpMessage = why.slice(0, 200)
-            log.warn(`[StreamUrl] yt-dlp said: ${lastYtdlpMessage}`)
+  const attempt = (extraArgs) =>
+    new Promise((resolve) => {
+      const startedAt = Date.now()
+      execFile(
+        ytdlpPath,
+        [
+          '-f', 'bestaudio/best',
+          '--no-playlist', '--no-warnings', '--no-check-certificate',
+          ...ytDlpCookieArgs(),
+          ...extraArgs,
+          '--print', 'META|%(format_id)s|%(abr)s|%(ext)s',
+          '-g',
+          `https://www.youtube.com/watch?v=${videoId}`
+        ],
+        { timeout: budgetMs, windowsHide: true, maxBuffer: 1024 * 1024 },
+        (err, stdout, stderr) => {
+          const elapsed = Date.now() - startedAt
+          if (err || !stdout) {
+            const why = String(stderr || '').trim().split('\n').filter(Boolean).slice(-1)[0] || ''
+            return resolve({ ok: false, why, elapsed, killed: !!err?.killed })
           }
-          // A short interactive probe timing out is not a failure — the caller simply
-          // did not want to wait. Only a full-length attempt may trip the breaker.
-          if (budgetMs >= YTDLP_TIMEOUT_MS) {
-            ytdlpCooldownUntil = Date.now() + YTDLP_COOLDOWN_MS
-            log.warn(
-              `[StreamUrl] yt-dlp failed after ${elapsed}ms (${err?.killed ? 'timeout' : (err?.code || 'no output')}) — skipping it for 10 min`
-            )
-          } else {
-            log.info(`[StreamUrl] yt-dlp still running after ${budgetMs}ms — using Innertube now`)
-          }
-          return resolve(null)
+          const lines = stdout.trim().split('\n')
+          const url = lines.find((l) => l.startsWith('http'))
+          if (!url) return resolve({ ok: false, why: '', elapsed, killed: false })
+          const meta = (lines.find((l) => l.startsWith('META|')) || '').split('|')
+          const abr = Number(meta[2])
+          const ext = (meta[3] || '').toLowerCase()
+          resolve({
+            ok: true,
+            elapsed,
+            url,
+            itag: meta[1] ? Number(meta[1]) : null,
+            bitrate: Number.isFinite(abr) ? Math.round(abr * 1000) : 0,
+            codec: ext === 'webm' || ext === 'opus' ? 'Opus' : 'AAC'
+          })
         }
-        if (elapsed > YTDLP_SLOW_MS) {
-          // It worked, but slowly. Keep the result and stop queueing behind it.
-          ytdlpCooldownUntil = Date.now() + YTDLP_COOLDOWN_MS
-          log.warn(`[StreamUrl] yt-dlp took ${elapsed}ms — skipping it for 10 min`)
-        }
-        const lines = stdout.trim().split('\n')
-        const url = lines.find((l) => l.startsWith('http'))
-        if (!url) return resolve(null)
-        const meta = (lines.find((l) => l.startsWith('META|')) || '').split('|')
-        const abr = Number(meta[2])
-        const ext = (meta[3] || '').toLowerCase()
-        resolve({
-          url,
-          itag: meta[1] ? Number(meta[1]) : null,
-          bitrate: Number.isFinite(abr) ? Math.round(abr * 1000) : 0,
-          codec: ext === 'webm' || ext === 'opus' ? 'Opus' : 'AAC'
-        })
+      )
+    })
+
+  let lastWhy = ''
+  for (let i = 0; i < YTDLP_CLIENT_LADDER.length; i += 1) {
+    const result = await attempt(YTDLP_CLIENT_LADDER[i])
+    if (result.ok) {
+      if (i > 0) log.info(`[StreamUrl] ${videoId} needed player_client rung ${i}`)
+      if (result.elapsed > YTDLP_SLOW_MS) {
+        ytdlpCooldownUntil = Date.now() + YTDLP_COOLDOWN_MS
+        log.warn(`[StreamUrl] yt-dlp took ${result.elapsed}ms — skipping it for 10 min`)
       }
-    )
-  })
+      return {
+        url: result.url,
+        itag: result.itag,
+        bitrate: result.bitrate,
+        codec: result.codec
+      }
+    }
+
+    lastWhy = result.why
+    if (result.why) {
+      lastYtdlpMessage = result.why.slice(0, 200)
+      log.warn(`[StreamUrl] yt-dlp said: ${lastYtdlpMessage}`)
+    }
+
+    // Only climb for failures another client can actually fix.
+    const climbable = /format is not available|not a bot|sign in to confirm|403|unable to extract/i.test(result.why)
+    if (!climbable) break
+  }
+
+  // A short interactive probe timing out is not a failure — the caller simply did not
+  // want to wait. Only a full-length attempt may trip the breaker.
+  if (budgetMs >= YTDLP_TIMEOUT_MS) {
+    ytdlpCooldownUntil = Date.now() + YTDLP_COOLDOWN_MS
+    log.warn('[StreamUrl] yt-dlp failed on every player client — skipping it for 10 min')
+  } else {
+    log.info(`[StreamUrl] yt-dlp still running after ${budgetMs}ms — using Innertube now`)
+  }
+  return null
 }
 
 /**
@@ -4731,7 +4778,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
             return playableUrl
           }
         } catch (e) {
-          logDebug(`[StreamUrl] Innertube client ${client} failed: ${e.message}`)
+          log.warn(`[StreamUrl] Innertube client ${client} failed: ${e.message}`)
         }
       }
     }
@@ -4762,6 +4809,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
           '--no-warnings',
           '--no-cache-dir',
           ...ytDlpCookieArgs(),
+          '--extractor-args', 'youtube:formats=missing_pot',
           // Match the preset: best available, <=160 kbps, or <=96 kbps.
           '--format', YTDLP_FORMAT_BY_QUALITY[streamQuality] || 'bestaudio/best'
         ], { timeout: 6000, windowsHide: true }, (error, stdout, stderr) => {
@@ -4809,6 +4857,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
               isStandardYtId ? `https://www.youtube.com/watch?v=${cleanVideoId}` : `ytsearch1:${cleanVideoId}`,
               '-g', '--no-playlist', '--no-check-certificate', '--no-warnings', '--no-cache-dir',
               ...ytDlpCookieArgs(),
+              '--extractor-args', 'youtube:formats=missing_pot',
               '--format', YTDLP_FORMAT_BY_QUALITY[streamQuality] || 'bestaudio/best'
             ],
             { timeout: 15000, windowsHide: true },

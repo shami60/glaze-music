@@ -1,10 +1,9 @@
-# What's new in 1.0.17
+# What's new in 1.0.18
 
-- **Playback now uses your YouTube sign-in.** If you have connected YouTube Music in the
-  app, songs are requested as you instead of anonymously — which is what clears "sign in to
-  confirm you're not a bot" on networks YouTube challenges.
-- Nothing changes if you have not signed in: anonymous playback, with browser cookies as
-  the fallback.
+- **Fixed: "Requested format is not available".** Once signing in cleared YouTube's bot
+  check, YouTube started offering only formats that carry a token the downloader throws
+  away — so every song failed a second, different way. Those formats are kept now.
+- Applies to playback, downloads and the fallback path alike.
 
 ---
 
