@@ -1,22 +1,18 @@
-# What's new in 1.0.9
+# What's new in 1.0.10
 
-- **Imported playlists actually work.** Songs from a Spotify import now play,
-  show their artwork, and download — the names and covers are saved with the
-  playlist, so it opens complete instead of filling in a second later.
-- **Songs start faster.** A resolved stream is remembered across restarts, and
-  hovering a row warms it up before you click.
-- **Cleaner artist and album pages.** No banner photo behind the title — just the
-  portrait, name and bio, lined up with the tracklist below.
-- **Lyrics stay in sync.** One source for every screen, with word timing that
-  follows the line instead of guessing.
+- **Windows media controls.** Cover art, title, artist and a working progress bar in the
+  Windows media flyout — and its play/pause/next buttons control the app.
+- **Updates install themselves.** No installer window, no clicking Next. The app closes,
+  updates and reopens on its own.
+- **Cleaner sound.** Reverb was being added on top of the music, which clipped loud
+  tracks. It is dry by default now, with a limiter guarding the output.
+- **Songs start in half a second** instead of four.
 
 ## Fixes
 
-- Discord showed an "Idle" card and kept a paused one. Both are gone — the
-  activity exists only while a track is playing.
-- Restarting on an artist page left it loading forever.
-- Back from an artist could jump to an artist you had not come from.
-- Downloading from an imported playlist failed with "Invalid video ID".
+- Crackling at high volume, and with the equaliser or 8D audio on.
+- Downloads failing once the downloader had gone out of date.
+- The app appearing as "Unknown app" in the media flyout.
 
 ---
 

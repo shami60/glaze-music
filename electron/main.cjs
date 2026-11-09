@@ -97,6 +97,12 @@ if (typeof app.userAgentFallback === 'string') {
 }
 
 
+// Windows identifies an app in the media flyout, taskbar grouping and notifications by
+// its AppUserModelID. Without one the SMTC session renders as "Unknown app" with no icon.
+// The name and icon are resolved from the Start Menu shortcut electron-builder creates,
+// which carries `build.appId` — so this string must match that exactly.
+if (process.platform === 'win32') app.setAppUserModelId('com.glazemusic.app')
+
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   console.log('Another instance is already running. Exiting.')
@@ -574,6 +580,7 @@ function createWindow() {
     log.debug('[Main] Window created and displayed')
     setTimeout(() => {
       updateThumbnailToolbar(false) // Initialise the thumbar buttons once window is ready
+      initSmtcBridge() // Windows media flyout (SMTC)
     }, 600)
   })
 
@@ -655,6 +662,42 @@ function createWindow() {
   })
 }
 
+// Refresh yt-dlp when it is older than `maxAgeMs`.
+//
+// YouTube changes its player often enough that a stale extractor stops working — the
+// download then fails with "Unable to extract" or an HTTP 403, which looks like a bug
+// in this app. The old code ran `-U` on every launch, which self-healed but stalled
+// startup (see the note in ensureYtDlp). This runs it only when something actually
+// needs it, and only at a moment the user is already waiting.
+async function refreshYtDlp(maxAgeMs, label = 'pre-download') {
+  const { execFile } = require('child_process')
+  const binary = global.ytDlpPath
+  if (!binary || !fs.existsSync(binary)) return false
+
+  const stampPath = path.join(app.getPath('userData'), 'ytdlp-last-update.json')
+  let lastCheck = 0
+  try {
+    lastCheck = Number(JSON.parse(fs.readFileSync(stampPath, 'utf8')).lastCheck) || 0
+  } catch {
+    /* first run */
+  }
+  if (Date.now() - lastCheck < maxAgeMs) return false
+
+  log.debug(`[Download] Refreshing yt-dlp (${label})`)
+  return new Promise((resolve) => {
+    execFile(binary, ['-U'], { timeout: 60000, windowsHide: true }, (err, stdout) => {
+      try {
+        fs.writeFileSync(stampPath, JSON.stringify({ lastCheck: Date.now() }))
+      } catch {
+        /* non-fatal */
+      }
+      if (!err && stdout) log.debug(`[Download] yt-dlp update: ${stdout.trim()}`)
+      else if (err) log.debug(`[Download] yt-dlp update failed: ${err.message}`)
+      resolve(true)
+    })
+  })
+}
+
 // ─── yt-dlp Auto-Updater / Downloader ─────────────────────────────────────────
 // Ensures yt-dlp is present and automatically self-updates in the background on every launch.
 // The user NEVER has to manually update binaries.
@@ -670,13 +713,41 @@ async function ensureYtDlp() {
   
   if (targetBinary) {
     global.ytDlpPath = targetBinary
-    // Check and apply yt-dlp updates in background asynchronously
-    logDebug(`[Updater] Checking for yt-dlp updates in background: ${targetBinary}`)
-    execFile(targetBinary, ['-U'], { timeout: 25000, windowsHide: true }, (err, stdout) => {
-      if (!err && stdout) {
-        logDebug(`[Updater] yt-dlp auto-update status: ${stdout.trim()}`)
-      }
-    })
+
+    // `yt-dlp -U` used to run on *every* launch. It hits GitHub, and when it finds an
+    // update it rewrites the executable — after which antivirus rescans the new binary
+    // and the next spawn of it can block for tens of seconds. That is the "one song
+    // took two minutes" report: the update ran at startup, and the first playback paid
+    // for the scan. It also ran while playback might need the very file being replaced.
+    //
+    // Now: at most once a week, a minute after launch, and never on the first run of a
+    // new version (the bundled binary is already current).
+    const stampPath = path.join(app.getPath('userData'), 'ytdlp-last-update.json')
+    let lastCheck = 0
+    try {
+      lastCheck = Number(JSON.parse(fs.readFileSync(stampPath, 'utf8')).lastCheck) || 0
+    } catch {
+      /* first run, or the file was removed */
+    }
+
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+    if (Date.now() - lastCheck > WEEK_MS) {
+      setTimeout(() => {
+        logDebug(`[Updater] Weekly yt-dlp check: ${targetBinary}`)
+        execFile(targetBinary, ['-U'], { timeout: 90000, windowsHide: true }, (err, stdout) => {
+          // Stamp regardless: a machine that cannot reach GitHub must not retry every
+          // launch, which would reintroduce exactly the startup stall this avoids.
+          try {
+            fs.writeFileSync(stampPath, JSON.stringify({ lastCheck: Date.now() }))
+          } catch {
+            /* non-fatal */
+          }
+          if (!err && stdout) logDebug(`[Updater] yt-dlp update: ${stdout.trim()}`)
+        })
+      }, 60000)
+    } else {
+      logDebug('[Updater] Skipping yt-dlp update — checked recently')
+    }
     return
   }
 
@@ -2444,6 +2515,11 @@ ipcMain.handle('youtube:downloadTrack', async (_event, videoId, customFolder) =>
       console.error('yt-dlp.exe not found at', ytDlpPath)
       return { success: false, error: 'Downloader component missing' }
     }
+
+    // A download is an explicit, already-slow action, so it is the right moment to
+    // make sure the extractor is current. Bounded to once a day: `-U` costs one
+    // network round trip and prints "up to date" immediately when nothing changed.
+    await refreshYtDlp(24 * 60 * 60 * 1000)
     
     // Imported tracks are keyed `yt:<title> <artist>` — a search key, not a video
     // id — so `safeMediaId` rejected them outright and every download from an
@@ -2612,7 +2688,15 @@ ipcMain.handle('youtube:downloadTrack', async (_event, videoId, customFolder) =>
           resolve({ success: true, videoId: cleanVideoId, filePath: downloadedFile, message: `Saved to ${baseDir}` })
         } else {
           console.error('Download failed', errorOut)
-          resolve({ success: false, error: errorOut || 'Download failed' })
+          // The common failure is an extractor that YouTube has outgrown. Say so,
+          // rather than surfacing a raw yt-dlp traceback.
+          const stale = /unable to extract|http error 4(03|10|29)|signature|nsig|player response|confirm your age/i.test(errorOut)
+          resolve({
+            success: false,
+            error: stale
+              ? 'YouTube changed something — updating the downloader usually fixes it. Try again in a moment.'
+              : errorOut || 'Download failed'
+          })
         }
       })
       
@@ -4337,7 +4421,7 @@ ipcMain.handle('audio:setQuality', (_event, quality) => {
     ? quality
     : 'high'
   streamUrlMemoryCache.clear()
-  logDebug(`[StreamUrl] Quality set to ${streamQuality}`)
+  log.info(`[StreamUrl] Quality set to ${streamQuality}`)
   return streamQuality
 })
 
@@ -4350,8 +4434,24 @@ ipcMain.handle('audio:getQuality', () => streamQuality)
 // URL that serves arbitrary offsets, which is the only way to offer the top
 // bitrate end to end. It costs a few seconds; the renderer prefetches the next
 // track, so steady playback does not pay it.
-function resolveBestAudioWithYtDlp(videoId) {
+// yt-dlp answers in 3-4 s on a healthy machine, and the renderer hides that behind a
+// prefetch. It does not answer at all on a machine where the binary is cold, being
+// scanned by antivirus, or blocked by the network — and the old 25 s timeout meant one
+// bad track could stall playback for most of a minute before the fallback even started.
+const YTDLP_TIMEOUT_MS = 8000
+const YTDLP_SLOW_MS = 6000
+// After a failure or a slow call, stop paying for it: the rest of the session goes
+// straight to Innertube. 10 minutes is long enough to matter, short enough to recover.
+const YTDLP_COOLDOWN_MS = 10 * 60 * 1000
+let ytdlpCooldownUntil = 0
+
+function ytdlpAvailable() {
+  return Date.now() >= ytdlpCooldownUntil
+}
+
+function resolveBestAudioWithYtDlp(videoId, budgetMs = YTDLP_TIMEOUT_MS) {
   return new Promise((resolve) => {
+    const startedAt = Date.now()
     const { execFile } = require('child_process')
     const ytdlpPath = global.ytDlpPath || (app.isPackaged
       ? path.join(process.resourcesPath, 'yt-dlp.exe')
@@ -4367,9 +4467,27 @@ function resolveBestAudioWithYtDlp(videoId) {
         '-g',
         `https://www.youtube.com/watch?v=${videoId}`
       ],
-      { timeout: 25000, windowsHide: true, maxBuffer: 1024 * 1024 },
+      { timeout: budgetMs, windowsHide: true, maxBuffer: 1024 * 1024 },
       (err, stdout) => {
-        if (err || !stdout) return resolve(null)
+        const elapsed = Date.now() - startedAt
+        if (err || !stdout) {
+          // A short interactive probe timing out is not a failure — the caller simply
+          // did not want to wait. Only a full-length attempt may trip the breaker.
+          if (budgetMs >= YTDLP_TIMEOUT_MS) {
+            ytdlpCooldownUntil = Date.now() + YTDLP_COOLDOWN_MS
+            log.warn(
+              `[StreamUrl] yt-dlp failed after ${elapsed}ms (${err?.killed ? 'timeout' : (err?.code || 'no output')}) — skipping it for 10 min`
+            )
+          } else {
+            log.info(`[StreamUrl] yt-dlp still running after ${budgetMs}ms — using Innertube now`)
+          }
+          return resolve(null)
+        }
+        if (elapsed > YTDLP_SLOW_MS) {
+          // It worked, but slowly. Keep the result and stop queueing behind it.
+          ytdlpCooldownUntil = Date.now() + YTDLP_COOLDOWN_MS
+          log.warn(`[StreamUrl] yt-dlp took ${elapsed}ms — skipping it for 10 min`)
+        }
         const lines = stdout.trim().split('\n')
         const url = lines.find((l) => l.startsWith('http'))
         if (!url) return resolve(null)
@@ -4434,7 +4552,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
   // very URL the element just rejected.
   const cached = streamUrlMemoryCache.get(streamCacheKey(cleanVideoId))
   if (!forceDirect && cached && cached.url && cached.expireAt > Date.now()) {
-    logDebug(`[StreamUrl] Returning cached URL for ${cleanVideoId} (${streamQuality})`)
+    log.info(`[StreamUrl] ${cleanVideoId} cached (${streamQuality})`)
     if (cached.info) emitStreamInfo(cleanVideoId, cached.info)
     return cached.url
   }
@@ -4473,8 +4591,24 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
     // Spotify imports key their tracks as `yt:<title> <artist>`, so the id only
     // becomes valid after the search above — and gating on `isStandardYtId` sent
     // every imported track down the Innertube path instead, where it died.
-    if (isTargetValid && (streamQuality === 'high' || forceDirect)) {
-      const best = await resolveBestAudioWithYtDlp(targetVid)
+    // `skipYtdlp` is the interactive path: a click must not wait on a subprocess that
+    // needs ~3.5 s when Innertube answers in about one. The forced-direct retry is
+    // excluded — that is the last resort, and it is *supposed* to use yt-dlp.
+    const skipYtdlp = !!opts?.skipYtdlp && !forceDirect
+    const useYtdlp = isTargetValid && (streamQuality === 'high' || forceDirect) && ytdlpAvailable() && !skipYtdlp
+    if (isTargetValid && (streamQuality === 'high' || forceDirect) && !useYtdlp) {
+      log.info(`[StreamUrl] ${targetVid} yt-dlp in cooldown — Innertube only`)
+    }
+
+    // The interactive path passes a small budget: a click must not sit behind a
+    // subprocess for 8 s when Innertube can answer in about a second. Prefetch leaves
+    // it out, so tracks warmed ahead of time still get the better yt-dlp rendition.
+    const ytdlpBudget = Number(opts?.ytdlpBudgetMs) > 0
+      ? Math.min(Number(opts.ytdlpBudgetMs), YTDLP_TIMEOUT_MS)
+      : YTDLP_TIMEOUT_MS
+
+    if (useYtdlp) {
+      const best = await resolveBestAudioWithYtDlp(targetVid, ytdlpBudget)
       if (best) {
         const info = {
           itag: best.itag,
@@ -4490,7 +4624,7 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
           info
         })
         emitStreamInfo(cleanVideoId, info)
-        logDebug(`[StreamUrl] ${cleanVideoId} via yt-dlp itag ${best.itag} ${best.codec} ${Math.round(best.bitrate / 1000)}kbps`)
+        log.info(`[StreamUrl] ${cleanVideoId} ok via yt-dlp itag ${best.itag} ${best.codec} ${Math.round(best.bitrate / 1000)}kbps`)
         return best.url
       }
     }
@@ -4559,7 +4693,10 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
       ? path.join(process.resourcesPath, 'yt-dlp.exe')
       : path.join(__dirname, '..', 'yt-dlp.exe'))
 
-    if (fs.existsSync(ytdlpPath)) {
+    // Respect the breaker here too. This is the last resort, but when yt-dlp has just
+    // failed it will fail again — and 6 s per track is worse than failing fast and
+    // telling the user.
+    if (fs.existsSync(ytdlpPath) && ytdlpAvailable()) {
       const ytdlpUrl = await new Promise((resolve) => {
         execFile(ytdlpPath, [
           isStandardYtId ? `https://www.youtube.com/watch?v=${cleanVideoId}` : `ytsearch1:${cleanVideoId}`,
@@ -4589,9 +4726,15 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
       }
     }
   } catch (dlpErr) {
-    logDebug(`[StreamUrl] yt-dlp error for ${cleanVideoId}: ${dlpErr.message}`)
+    log.warn(`[StreamUrl] yt-dlp error for ${cleanVideoId}: ${dlpErr.message}`)
   }
 
+  // Nothing worked. This used to return null in silence, which is why a user's log
+  // showed a wall of "no supported source" with no hint of the cause.
+  log.warn(
+    `[StreamUrl] ${cleanVideoId} UNRESOLVED — every Innertube client and yt-dlp failed ` +
+      `(quality=${streamQuality}, ytDlpAvailable=${ytdlpAvailable()})`
+  )
   return null
 })
 
@@ -5423,6 +5566,145 @@ ipcMain.handle('thumbar:update', (_event, isPlaying) => {
   updateThumbnailToolbar(!!isPlaying)
 })
 
+// ── Windows media controls (SMTC) ─────────────────────────────────────────────
+// Electron has no SMTC integration: `navigator.mediaSession` is a Blink API, and the
+// bridge into Windows' System Media Transport Controls lives in Chrome's browser layer,
+// which Electron does not ship. That is why the app never appeared in the Windows media
+// flyout while Spotify (native) did.
+//
+// `native/smtc/smtc.dll` is that bridge — a plain C-ABI DLL loaded through koffi rather
+// than a Node addon, so it never needs rebuilding when Electron's Node ABI changes,
+// which matters for an app that updates itself.
+let smtc = null
+let smtcPoll = null
+
+function initSmtcBridge() {
+  if (process.platform !== 'win32' || smtc) return
+  try {
+    const koffi = require('koffi')
+    const dllPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'smtc.dll')
+      : path.join(app.getAppPath(), 'native', 'smtc', 'smtc.dll')
+    if (!fs.existsSync(dllPath)) {
+      log.warn('[SMTC] bridge missing at ' + dllPath)
+      return
+    }
+
+    const lib = koffi.load(dllPath)
+    smtc = {
+      init: lib.func('int smtc_init(int64_t hwnd)'),
+      update: lib.func(
+        'int smtc_update(const char *title, const char *artist, const char *album, ' +
+          'const char *thumb, int playing, double position, double duration)'
+      ),
+      takeButton: lib.func('int smtc_take_button()'),
+      shutdown: lib.func('void smtc_shutdown()'),
+    }
+
+    const buf = mainWindow.getNativeWindowHandle()
+    const hwnd = buf.length >= 8 ? buf.readBigInt64LE(0) : BigInt(buf.readInt32LE(0))
+    const rc = smtc.init(hwnd)
+    if (rc !== 0) {
+      log.warn('[SMTC] init failed rc=' + rc)
+      smtc = null
+      return
+    }
+    log.info('[SMTC] bridge attached to hwnd')
+
+    // Button presses arrive on a WinRT thread, so the DLL queues them and we drain the
+    // queue here. Calling into V8 from that thread would be undefined behaviour.
+    smtcPoll = setInterval(() => {
+      let button = -1
+      try {
+        button = smtc.takeButton()
+      } catch {
+        return
+      }
+      if (button < 0 || !mainWindow || mainWindow.isDestroyed()) return
+      mainWindow.webContents.send('smtc:button', button)
+    }, 250)
+    if (smtcPoll.unref) smtcPoll.unref()
+  } catch (err) {
+    log.warn('[SMTC] bridge unavailable: ' + (err?.message || err))
+    smtc = null
+  }
+}
+
+function stopSmtcBridge() {
+  if (smtcPoll) {
+    clearInterval(smtcPoll)
+    smtcPoll = null
+  }
+  try {
+    smtc?.shutdown()
+  } catch {
+    /* nothing to undo */
+  }
+  smtc = null
+}
+
+// SMTC needs artwork as a file on disk, not a URL. Cache by content address so a cover
+// is fetched once and reused for every later play of the same track.
+async function smtcArtFile(url) {
+  if (!url || typeof url !== 'string') return ''
+  const crypto = require('crypto')
+  const dir = path.join(app.getPath('userData'), 'smtc-art')
+  const cachePath = (key) =>
+    path.join(dir, crypto.createHash('sha1').update(key).digest('hex').slice(0, 20) + '.img')
+  try {
+    if (url.startsWith('data:')) {
+      const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(url)
+      if (!m) return ''
+      const file = cachePath(url)
+      if (!fs.existsSync(file)) {
+        fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(file, Buffer.from(m[2], 'base64'))
+      }
+      return file
+    }
+    if (/^https?:/i.test(url)) {
+      const file = cachePath(url)
+      if (fs.existsSync(file)) return file
+      const res = await fetch(url)
+      if (!res.ok) return ''
+      const buf = Buffer.from(await res.arrayBuffer())
+      // A 404 page is not artwork; keep the flyout from showing a broken thumbnail.
+      if (buf.length < 64 || buf.length > 8 * 1024 * 1024) return ''
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(file, buf)
+      return file
+    }
+    if (url.startsWith('file://')) {
+      const p = decodeURIComponent(new URL(url).pathname).replace(/^\//, '')
+      return fs.existsSync(p) ? p : ''
+    }
+    if (path.isAbsolute(url) && fs.existsSync(url)) return url
+  } catch (err) {
+    log.warn('[SMTC] artwork resolve failed: ' + (err?.message || err))
+  }
+  return ''
+}
+
+ipcMain.handle('smtc:update', async (_event, payload) => {
+  if (!smtc) return { ok: false }
+  try {
+    const { title, artist, album, art, playing, position, duration } = payload || {}
+    const thumb = await smtcArtFile(art)
+    smtc.update(
+      String(title || ''),
+      String(artist || ''),
+      String(album || ''),
+      thumb,
+      playing ? 1 : 0,
+      Number(position) || 0,
+      Number(duration) || 0
+    )
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) }
+  }
+})
+
 app.on('window-all-closed', () => {
   if (isDev || process.platform !== 'darwin') {
     app.quit()
@@ -5431,6 +5713,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', (e) => {
   log.info('[Main] app before-quit triggered! Stack:\n' + new Error().stack)
+  stopSmtcBridge()
   globalShortcut.unregisterAll()
 
   // Flush the last known playback state synchronously. The renderer throttles

@@ -84,3 +84,7 @@ RIFF-*.md
 # Raw capture folder for README art. The optimised, committed copies live in
 # docs/screenshots/ — the originals are 1.4 MB each.
 github graphics/
+native/smtc/*.lib
+native/smtc/*.exp
+native/smtc/*.obj
+*.obj

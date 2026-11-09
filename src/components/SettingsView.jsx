@@ -115,7 +115,8 @@ export default function SettingsView({
     playbackSpeed, setPlaybackSpeed,
     isAutoplay, setIsAutoplay,
     streamQuality, applyStreamQuality, streamInfo,
-    sleepTimer, setSleepTimerMinutes, setSleepTimerEndOfTrack, clearSleepTimer
+    sleepTimer, setSleepTimerMinutes, setSleepTimerEndOfTrack, clearSleepTimer,
+    accentColor
   } = usePlayer()
 
   // Drives the blinking dot beside the "Software updates" heading, so a pending
@@ -1189,30 +1190,51 @@ export default function SettingsView({
         <div className="border-t border-white/5 mb-10" />
 
         {/* ── Software Updates ────────────────────────────────────────────── */}
+        {/* Given its own card and an accent wash: this is the one section a user comes
+            back to deliberately, and it was previously a plain row indistinguishable
+            from the settings above it. */}
         <section className="mb-10">
-          <div className="flex items-center gap-2.5 mb-1">
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-emerald-400">
-              <path d="M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" />
-            </svg>
-            <h3 className="text-xl font-semibold">Software updates</h3>
-            {updateNeedsAttention && (
-              <span
-                className="relative flex h-2.5 w-2.5"
-                title={updateState.status === 'ready' ? 'Update ready — restart to apply' : 'Update available'}
-              >
-                <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${updateState.status === 'ready' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${updateState.status === 'ready' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-white/40 mb-4 ml-7">
-            Glaze Music checks for a new version shortly after launch and every four hours.
-            Nothing downloads until you say so, and an update never interrupts playback.
-          </p>
-          <div className="ml-7 flex items-center justify-between gap-4 rounded-xl px-4 py-3"
-            style={{ background: 'var(--glass-card)', border: '1px solid var(--hairline)' }}
+          <div
+            className="relative overflow-hidden rounded-2xl border p-5"
+            style={{ background: 'var(--glass-card)', borderColor: 'var(--hairline)' }}
           >
-            <UpdateRow />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-28"
+              style={{
+                background: `radial-gradient(130% 100% at 50% 0%, ${accentColor || '#ef4444'}26 0%, transparent 72%)`,
+              }}
+            />
+
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-1.5">
+                <span
+                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-white/10"
+                  style={{ background: `${accentColor || '#ef4444'}1f`, color: accentColor || '#ef4444' }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                    <path d="M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" />
+                  </svg>
+                </span>
+                <h3 className="text-lg font-semibold">Software updates</h3>
+                {updateNeedsAttention && (
+                  <span
+                    className="relative flex h-2.5 w-2.5"
+                    title={updateState.status === 'ready' ? 'Update ready — restart to apply' : 'Update available'}
+                  >
+                    <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${updateState.status === 'ready' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                    <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${updateState.status === 'ready' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[11px] text-white/40 mb-4">
+                Checks on launch and every four hours. Updates download in the background and
+                install themselves when you quit — no installer window, no prompts.
+              </p>
+
+              <UpdateRow accentColor={accentColor} />
+            </div>
           </div>
         </section>
 

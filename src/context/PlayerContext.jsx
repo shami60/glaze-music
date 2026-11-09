@@ -210,7 +210,7 @@ const streamUrlCache = new StreamUrlCache()
 
 export function PlayerProvider({ children }) {
   // ── Load persisted state ────────────────────────────────────────────────
-  const defaultState = { queue: [], currentIndex: -1, currentTime: 0, volume: 0.8, shuffle: false, repeat: 'none', theme: 'dynamic', eqGains: [0,0,0,0,0,0,0,0,0,0], is8D: false, panSpeed: 2500, reverbPreset: 'room', isAutoplay: true, playbackSpeed: 1.0, crossfade: 0, appearance: 'daylight', customAccent: '#8b5cf6', customMode: 'dark', ambience: true, motion: true, streamQuality: 'high' }
+  const defaultState = { queue: [], currentIndex: -1, currentTime: 0, volume: 0.8, shuffle: false, repeat: 'none', theme: 'dynamic', eqGains: [0,0,0,0,0,0,0,0,0,0], is8D: false, panSpeed: 2500, reverbPreset: 'none', isAutoplay: true, playbackSpeed: 1.0, crossfade: 0, appearance: 'daylight', customAccent: '#8b5cf6', customMode: 'dark', ambience: true, motion: true, streamQuality: 'high' }
   
   const [isStateLoaded, setIsStateLoaded] = useState(false)
   
@@ -508,6 +508,8 @@ export function PlayerProvider({ children }) {
   const pannerRef     = useRef(null)
   const convolverRef  = useRef(null)
   const reverbGainRef = useRef(null)
+  const dryGainRef = useRef(null)
+  const limiterRef = useRef(null)
   const analyserRef   = useRef(null)
   const intervalRef   = useRef(null)
 
@@ -537,7 +539,7 @@ export function PlayerProvider({ children }) {
       
       const convolver = ctx.createConvolver(); convolverRef.current = convolver
       const initialPreset = localStorage.getItem('glaze_playback') 
-        ? (JSON.parse(localStorage.getItem('glaze_playback')).reverbPreset || 'room') 
+        ? (JSON.parse(localStorage.getItem('glaze_playback')).reverbPreset || 'none') 
         : 'room'
       const impulse = createReverbBuffer(ctx, initialPreset)
       if (impulse) convolver.buffer = impulse
@@ -552,6 +554,14 @@ export function PlayerProvider({ children }) {
       reverbGain.gain.value = initialGain
       reverbGainRef.current = reverbGain
 
+      // Dry path. The reverb used to be *added* to the dry signal, so a track mastered
+      // at 0 dBFS came out above full scale — that was the crackle, and it happened even
+      // with no effect chosen because `room` is the default preset. Dry and wet now
+      // crossfade instead of summing.
+      const dryGain = ctx.createGain()
+      dryGain.gain.value = Math.max(0, 1 - initialGain)
+      dryGainRef.current = dryGain
+
       const analyser = ctx.createAnalyser()
       analyser.fftSize = 256
       analyserRef.current = analyser
@@ -563,12 +573,25 @@ export function PlayerProvider({ children }) {
       fadeGain.gain.value = 1
       fadeGainRef.current = fadeGain
 
+      // Last thing before the speakers. EQ boosts sum across eight bands, and a 0 dBFS
+      // master has no headroom left — without this, any boost clips audibly. A limiter
+      // costs nothing when the signal is already under the threshold.
+      const limiter = ctx.createDynamicsCompressor()
+      limiter.threshold.value = -3
+      limiter.knee.value = 0
+      limiter.ratio.value = 20
+      limiter.attack.value = 0.003
+      limiter.release.value = 0.25
+      limiterRef.current = limiter
+
+      lastNode.connect(dryGain)
       lastNode.connect(convolver)
       convolver.connect(reverbGain)
+      dryGain.connect(panner)
       reverbGain.connect(panner)
-      lastNode.connect(panner)
       panner.connect(fadeGain)
-      fadeGain.connect(analyser)
+      fadeGain.connect(limiter)
+      limiter.connect(analyser)
       analyser.connect(ctx.destination)
     } catch(e) { console.warn('AudioGraph init failed:', e) }
   }
@@ -626,6 +649,7 @@ export function PlayerProvider({ children }) {
         // Omitting convolverRef.current.buffer = null to prevent Chromium InvalidStateError
       }
       reverbGainRef.current.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.1)
+      dryGainRef.current?.gain.setTargetAtTime(Math.max(0, 1 - targetGain), ctx.currentTime, 0.1)
     } else {
       const buffer = createReverbBuffer(ctx, reverbPreset)
       convolverRef.current.buffer = buffer
@@ -637,6 +661,7 @@ export function PlayerProvider({ children }) {
       else if (reverbPreset === 'cathedral') targetGain = 0.45
 
       reverbGainRef.current.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.1)
+      dryGainRef.current?.gain.setTargetAtTime(Math.max(0, 1 - targetGain), ctx.currentTime, 0.1)
     }
   }, [reverbPreset, is8D])
 
@@ -703,7 +728,10 @@ export function PlayerProvider({ children }) {
     const savedTime = audio.currentTime || 0
     const wasPlaying = !audio.paused
     try {
-      const url = await window.electronAPI.youtubeGetStreamUrl(videoId)
+      // Interactive path: skip yt-dlp entirely. It needs ~3.5 s and Innertube answers in
+      // under one, so waiting even briefly for it is pure latency. Prefetch (which runs
+      // ahead of the user) still uses it, so warmed tracks keep the better rendition.
+      const url = await window.electronAPI.youtubeGetStreamUrl(videoId, { skipYtdlp: true })
       if (url && typeof url === 'string') {
         streamUrlCache.set(videoId, url)
         audio.src = url
@@ -1180,6 +1208,62 @@ export function PlayerProvider({ children }) {
       } catch (e) {}
     }
   }, [currentTime, duration])
+
+  // ── Windows media flyout (SMTC) ────────────────────────────────────────
+  // Electron cannot publish an SMTC session by itself — `navigator.mediaSession` above
+  // is a Blink API and never reaches Windows. The native bridge in main does, so we
+  // report the current track here and listen for the flyout's buttons.
+  //
+  // Track changes push immediately; the position is throttled, because Windows
+  // interpolates between timeline updates and 4 pushes a second would be pure waste.
+  const smtcPushedAt = useRef(0)
+
+  useEffect(() => {
+    if (!window.electronAPI?.smtcUpdate) return
+    if (!currentTrack) {
+      window.electronAPI.smtcUpdate({ playing: false })
+      return
+    }
+    smtcPushedAt.current = Date.now()
+    window.electronAPI.smtcUpdate({
+      title: currentTrack.title || currentTrack.name || 'Unknown Track',
+      artist: currentTrack.artist || 'Unknown Artist',
+      album: currentTrack.album || 'Glaze Music',
+      art: getArtURL(currentTrack.src),
+      playing: isPlaying,
+      position: currentTime,
+      duration
+    })
+  }, [currentTrack?.src, currentTrack?.title, currentTrack?.artist, isPlaying, duration])
+
+  useEffect(() => {
+    if (!window.electronAPI?.smtcUpdate || !currentTrack) return
+    if (Date.now() - smtcPushedAt.current < 900) return
+    smtcPushedAt.current = Date.now()
+    window.electronAPI.smtcUpdate({
+      title: currentTrack.title || currentTrack.name || 'Unknown Track',
+      artist: currentTrack.artist || 'Unknown Artist',
+      album: currentTrack.album || 'Glaze Music',
+      art: getArtURL(currentTrack.src),
+      playing: isPlaying,
+      position: currentTime,
+      duration
+    })
+  }, [currentTime])
+
+  // Buttons from the flyout. Windows only sends Play while paused and Pause while
+  // playing, so both toggle. 6 = next, 7 = previous, 2 = stop.
+  useEffect(() => {
+    const off = window.electronAPI?.onSmtcButton?.((button) => {
+      if (button === 6) skipNext()
+      else if (button === 7) skipPrev()
+      else if (button === 2) audio.pause()
+      else if (button === 0 || button === 1) togglePlayPause()
+    })
+    return () => off?.()
+    // Bound once: the handlers close over stable setters, not over state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
 
   // ── Accent color from artwork ──────────────────────────────────────────

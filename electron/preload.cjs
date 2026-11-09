@@ -63,6 +63,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // `downloadUpdate`. `installUpdate` quits and runs the NSIS installer.
   getUpdateState: () => ipcRenderer.invoke('update:getState'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  // Windows media flyout (SMTC). The native bridge lives in main; the renderer just
+  // reports what is playing and listens for the flyout's transport buttons.
+  smtcUpdate: (payload) => ipcRenderer.invoke('smtc:update', payload),
+  onSmtcButton: (callback) => {
+    const handler = (_event, button) => callback(button)
+    ipcRenderer.on('smtc:button', handler)
+    return () => ipcRenderer.removeListener('smtc:button', handler)
+  },
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdateStatus: (callback) => {

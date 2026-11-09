@@ -45,6 +45,7 @@ import AddToPlaylistModal from './components/AddToPlaylistModal'
 import YouTubeMusicView from './components/YouTubeMusicView'
 import MiniPlayerView from './components/MiniPlayerView'
 import UpdateBanner from './components/UpdateBanner'
+import UpdateOverlay from './components/UpdateOverlay'
 import OfflineBanner from './components/OfflineBanner'
 
 import { THEMES } from './themes'
@@ -1079,6 +1080,7 @@ function AppShell() {
 
       {/* ── Online update prompt ── */}
       <UpdateBanner />
+      <UpdateOverlay />
 
       {/* ── Global Add to Playlist Modal ── */}
       {playlistModalTrack && (

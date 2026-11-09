@@ -1,6 +1,6 @@
 {
   "name": "glaze-music",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Glaze Music — A native high-performance universal media player",
   "author": "shami60",
   "repository": {
@@ -24,12 +24,14 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"electron/**/*.cjs\" \"scripts/**/*.cjs\" \"*.{js,json,md}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\" \"electron/**/*.cjs\" \"scripts/**/*.cjs\" \"*.{js,json,md}\""
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\" \"electron/**/*.cjs\" \"scripts/**/*.cjs\" \"*.{js,json,md}\"",
+    "build:smtc": "node scripts/build-smtc.cjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "discord-rpc": "^4.0.1",
     "electron-updater": "^6.8.11",
+    "koffi": "^3.3.7",
     "music-metadata": "^10.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -75,14 +77,19 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "!native/**"
     ],
     "extraResources": [
       {
         "from": "assets",
         "to": "assets"
       },
-      "yt-dlp.exe"
+      "yt-dlp.exe",
+      {
+        "from": "native/smtc/smtc.dll",
+        "to": "smtc.dll"
+      }
     ],
     "win": {
       "target": [
@@ -110,6 +117,9 @@
       "runAfterFinish": true,
       "license": "assets/features.rtf",
       "include": "build/installer.nsh"
-    }
+    },
+    "asarUnpack": [
+      "**/*.node"
+    ]
   }
 }

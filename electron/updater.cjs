@@ -9,8 +9,11 @@
  * releases, so a code-only update is typically a few megabytes.
  *
  * Behaviour (deliberate, matches what the app asks for):
- *   - never downloads on its own — `autoDownload = false`, the user is asked first
- *   - `autoInstallOnAppQuit = true`, so "Later" still installs on the next quit
+ *   - downloads on its own and silently — `autoDownload = true`, no prompt
+ *   - installs **silently** (NSIS `/S`): the app quits, the update applies, and it
+ *     comes back. No installer wizard, no Next-Next-Next. Installs are per-user
+ *     (`%LOCALAPPDATA%\Programs`), so there is no UAC prompt either
+ *   - "Later" still installs on the next quit, and that path is silent too
  *   - checks once shortly after launch, then every 4 h
  *   - does nothing at all in a dev build (`app.isPackaged === false`)
  *
@@ -81,8 +84,14 @@ function createUpdater({ ipcMain, getWindow, log = console }) {
       return push({ status: 'error', error: `Updater unavailable: ${err.message}` })
     }
 
-    updater.autoDownload = false
-    updater.autoInstallOnAppQuit = true
+    // Download without asking. A patch is a blockmap diff — usually a few MB — and it
+    // is applied on quit, so the user never sees a prompt, a progress bar or a wizard.
+    updater.autoDownload = true
+    // Deliberately false. electron-updater's built-in quit handler calls
+    // quitAndInstall() with isSilent = false, which is exactly the NSIS wizard we
+    // are removing. `onBeforeQuit` below takes that path over and installs silently.
+    updater.autoInstallOnAppQuit = false
+    app.on('before-quit', onBeforeQuit)
     updater.allowPrerelease = false
     // We ship the full NSIS package, never a web installer. Leaving this false
     // makes electron-updater carry the web-installer code path and log a warning
@@ -198,17 +207,52 @@ function createUpdater({ ipcMain, getWindow, log = console }) {
     return snapshot()
   }
 
+  // isSilent=true runs the NSIS installer with `/S`: no wizard, no clicks.
+  // isForceRunAfter=true brings the app back up once it is done.
+  //
+  // `installing` guards the quit path: quitAndInstall() quits the app, which fires
+  // before-quit again, and without the flag that would loop.
+  let installing = false
+
+  function runInstaller(forceRunAfter) {
+    try {
+      updater.quitAndInstall(true, forceRunAfter)
+    } catch (err) {
+      // Never strand the app in a half-quit: if the installer cannot start, let the
+      // quit proceed normally.
+      installing = false
+      log.warn?.('[Update] silent install failed:', err?.message || err)
+      app.quit()
+    }
+  }
+
   function install() {
     if (!updater) return { ok: false, error: 'Updater not available' }
     if (state.status !== 'ready') return { ok: false, error: 'No update has been downloaded yet' }
-    // isSilent=false keeps the NSIS progress window; isForceRunAfter=true relaunches.
-    setImmediate(() => updater.quitAndInstall(false, true))
+    if (installing) return { ok: true }
+    installing = true
+    // Explicit "Restart now": the app should come back up afterwards.
+    //
+    // The renderer shows an "Updating…" screen as soon as this resolves, so give it a
+    // beat to paint before the window is torn down — otherwise the app just vanishes.
+    setTimeout(() => runInstaller(true), 1100)
     return { ok: true }
+  }
+
+  // "Later" → quit → install silently. Without this the update would still be
+  // applied, but through electron-updater's non-silent handler.
+  function onBeforeQuit(event) {
+    if (installing || !updater || state.status !== 'ready') return
+    installing = true
+    event.preventDefault()
+    // The user asked to quit, so the installer must NOT relaunch the app.
+    setImmediate(() => runInstaller(false))
   }
 
   function dispose() {
     if (timer) clearInterval(timer)
     timer = null
+    app.removeListener('before-quit', onBeforeQuit)
   }
 
   // ── IPC surface ─────────────────────────────────────────────────────────────
