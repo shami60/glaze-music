@@ -274,7 +274,7 @@ export default function UpdateBanner() {
  */
 // Starting an install has to do two things: tell the user (the overlay) and tell main.
 // Keeping it in one place means the banner and the Settings row can never drift.
-async function startInstall(version) {
+export async function startInstall(version) {
   try {
     window.dispatchEvent(new CustomEvent('glaze:installing', { detail: { version } }))
   } catch {
@@ -408,7 +408,7 @@ export function UpdateRow({ accentColor = '#ef4444' }) {
   if (status === 'checking') { pill = 'Checking…'; dot = 'bg-white/40' }
   else if (status === 'available') { pill = `Update ${version} available`; dot = 'bg-amber-400' }
   else if (status === 'downloading') { pill = `Downloading ${percent}%`; dot = 'bg-amber-400' }
-  else if (status === 'ready') { pill = 'Ready — installs on quit'; dot = 'bg-emerald-400' }
+  else if (status === 'ready') { pill = 'Ready — installs itself'; dot = 'bg-emerald-400' }
   else if (status === 'error') { pill = 'Check failed'; dot = 'bg-red-400' }
   else if (status === 'idle') { pill = 'Not checked yet'; dot = 'bg-white/30' }
   else if (status === 'disabled') { pill = 'Updates disabled'; dot = 'bg-white/30' }
