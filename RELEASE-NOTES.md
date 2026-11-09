@@ -1,10 +1,10 @@
-# What's new in 1.0.16
+# What's new in 1.0.17
 
-- **Fix for "some songs won't play".** YouTube sometimes challenges an entire network with
-  "sign in to confirm you're not a bot" — nothing to do with Glaze, and no retry clears it.
-  Settings now has **YouTube sign-in**: pick a browser you are signed in to, and Glaze uses
-  that session. This is the documented way past the challenge.
-- When a song can't play, the app now tells you why.
+- **Playback now uses your YouTube sign-in.** If you have connected YouTube Music in the
+  app, songs are requested as you instead of anonymously — which is what clears "sign in to
+  confirm you're not a bot" on networks YouTube challenges.
+- Nothing changes if you have not signed in: anonymous playback, with browser cookies as
+  the fallback.
 
 ---
 

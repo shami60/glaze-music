@@ -4605,7 +4605,13 @@ ipcMain.handle('youtube:getStreamUrl', async (_event, videoId, opts) => {
   const isStandardYtId = /^[a-zA-Z0-9_-]{11}$/.test(cleanVideoId)
 
   try {
-    const yt = await initYouTubeI()
+    // Prefer the signed-in client when the user has connected YouTube. Requests then
+    // carry their account, which is what YouTube expects from a real player — and it is
+    // the difference between "sign in to confirm you're not a bot" and a track that plays
+    // on a challenged network. Anonymous stays the fallback so nothing regresses for
+    // people who never signed in.
+    const yt =
+      (await ensureYouTubeAuth().catch(() => null)) || (await initYouTubeI())
     if (yt && !isStandardYtId) {
       if (cleanVideoId.startsWith('MPREb_') || cleanVideoId.startsWith('PL') || cleanVideoId.startsWith('VL') || cleanVideoId.startsWith('RD') || cleanVideoId.startsWith('FEmusic_')) {
         try {
